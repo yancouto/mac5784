@@ -8,19 +8,27 @@ from agents import Herbivore, Grass
 class Map(SpriteSolidColor):
     all_objs = arcade.SpriteList()
     def __init__(self) -> None:
-        super().__init__(500, 500, (0, 0, 0))
+        super().__init__(800, 800, (0, 0, 0))
         self.center_x = SCREEN_WIDTH / 2
         self.center_y = SCREEN_HEIGHT / 2
-        for _ in range(10):
-            x = self.center_x + (random.random() - 0.5) * (self.width - OBJ_SIZE)
-            y = self.center_y + (random.random() - 0.5) * (self.height - OBJ_SIZE)
-            if random.random() < 0.2:
-                self.all_objs.append(Herbivore(x, y))
+        for _ in range(30):
+            left = self.left + random.random() * (self.width - OBJ_SIZE)
+            top = self.top - random.random() * (self.height - OBJ_SIZE)
+            if random.random() < 0.3:
+                self.all_objs.append(Herbivore(left, top))
             else:
-                self.all_objs.append(Grass(x, y))
+                self.all_objs.append(Grass(left, top))
     def update(self):
         for obj in self.all_objs.sprite_list:
             obj.update()
+            if obj.left < self.left:
+                obj.change_x = abs(obj.change_x)
+            elif obj.right > self.right:
+                obj.change_x = -abs(obj.change_x)
+            elif obj.top > self.top:
+                obj.change_y = -abs(obj.change_y)
+            elif obj.bottom < self.bottom:
+                obj.change_y = abs(obj.change_y)
     def draw(self, **kwargs) -> None:
         super().draw(**kwargs)
         for obj in self.all_objs.sprite_list:
