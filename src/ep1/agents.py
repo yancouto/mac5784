@@ -4,7 +4,7 @@ from constants import OBJ_SIZE, DT, SCREEN_HEIGHT, SCREEN_WIDTH
 import random
 from util import rand
 from dataclasses import dataclass
-from typing import cast
+from enum import Enum
 
 class Agent(Sprite):
     map: "Map"
@@ -14,6 +14,14 @@ class Agent(Sprite):
         self.left = left
         self.top = top
         self.map = map
+    
+    @property
+    def hitbox_width(self) -> float:
+        return self.right - self.left
+    
+    @property
+    def hitbox_height(self) -> float:
+        return self.top - self.bottom
 
 class AgentWithHealth(Agent):
     health = 100.0
@@ -21,10 +29,10 @@ class AgentWithHealth(Agent):
 
     def draw(self, **kwargs):
         super().draw(**kwargs)
-        health_bar_width = self.width * (self.health / 100)
+        health_bar_width = self.hitbox_width * (self.health / 100)
         health_bar_height = 5
         health_bar_x = self.left + health_bar_width / 2
-        health_bar_y = self.top - health_bar_height / 2
+        health_bar_y = self.top + health_bar_height / 2
         arcade.draw_rectangle_filled(health_bar_x, health_bar_y, health_bar_width, health_bar_height, arcade.color.GREEN)
         self.draw_hit_box(arcade.color.RED, 1)
     
@@ -49,7 +57,6 @@ class Grass(AgentWithHealth):
     health_regen = 5.0
     def __init__(self, *args):
         super().__init__(*args, ":resources:images/tiles/cactus.png", scale=OBJ_SIZE / 128)
-        assert(self.width == OBJ_SIZE and self.height == OBJ_SIZE)
 
 class AgentWithHunger(AgentWithHealth):
     HUNGER_DAMAGE: float = 10.0
@@ -58,7 +65,7 @@ class AgentWithHunger(AgentWithHealth):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.hunger = rand(0, 20)
+        self.hunger = rand(0, 10)
 
     def update(self):
         self.hunger = min(100, self.hunger + self.hunger_buildup * DT)
@@ -68,10 +75,10 @@ class AgentWithHunger(AgentWithHealth):
     
     def draw(self, **kwargs):
         super().draw(**kwargs)
-        hunger_bar_width = self.width * (self.hunger / 100)
+        hunger_bar_width = self.hitbox_width * (self.hunger / 100)
         hunger_bar_height = 5
         hunger_bar_x = self.left + hunger_bar_width / 2
-        hunger_bar_y = self.top - hunger_bar_height / 2 - 5
+        hunger_bar_y = self.top + hunger_bar_height / 2 + 5
         arcade.draw_rectangle_filled(hunger_bar_x, hunger_bar_y, hunger_bar_width, hunger_bar_height, arcade.color.RED)
     
     def remove_hunger(self, amount: float):
@@ -102,20 +109,23 @@ class Herbivore(AgentWithHunger):
     def __init__(self, *args):
         super().__init__(*args, ":resources:images/enemies/wormPink.png", scale=OBJ_SIZE / 128)
         self.state = Herbivore.Idle.random(3)
-        self.idle_speed: float = rand(0.1, 0.5)
+        self.idle_speed: float = rand(0.3, 0.8)
         self.chase_speed: float = rand(1.0, 2.0)
         self.eat_speed: float = rand(15, 20)
-        assert(self.width == OBJ_SIZE and self.height == OBJ_SIZE)
     
     def update(self):
         super().update()
         match self.state:
             case Herbivore.Idle(_) as state:
                 state.time_to_move -= DT
-                if self.is_hungry:
-                    closest = arcade.get_closest_sprite(self, self.map.scene.get_sprite_list("grass"))
-                    if closest is not None and isinstance(closest[0], Grass):
-                        self.state = Herbivore.ChasingFood(closest[0])
+                if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
+                    grasses = self.map.scene.get_sprite_list(Agents.Grass.name).sprite_list
+                    distances = [arcade.get_distance_between_sprites(self, s) for s in grasses]
+                    max_dist = max(distances)
+                    chase = random.choices(grasses, [max_dist + 1 - d for d in distances])
+                    if len(chase) > 0 and isinstance(chase[0], Grass):
+                        self.state = Herbivore.ChasingFood(chase[0])
+                        return
                 elif state.time_to_move <= 0:
                     if random.random() < 0.3:
                         self.velocity = [0, 0]
@@ -144,7 +154,10 @@ class Herbivore(AgentWithHunger):
                         self.state = Herbivore.Idle.random(0.5)
             case _:
                 raise ValueError("Unknown state")
-        
+
+class Agents(Enum):
+    Grass = Grass
+    Herbivore = Herbivore
 
 class Map(SpriteSolidColor):
     scene = arcade.Scene()
@@ -156,9 +169,9 @@ class Map(SpriteSolidColor):
             left = self.left + random.random() * (self.width - OBJ_SIZE)
             top = self.top - random.random() * (self.height - OBJ_SIZE)
             if random.random() < 0.4:
-                self.scene.add_sprite("herbivore", Herbivore(self, left, top))
+                self.scene.add_sprite(Agents.Herbivore.name, Herbivore(self, left, top))
             else:
-                self.scene.add_sprite("grass", Grass(self, left, top))
+                self.scene.add_sprite(Agents.Grass.name, Grass(self, left, top))
 
     def update(self):
         for list in self.scene.sprite_lists:
@@ -178,3 +191,6 @@ class Map(SpriteSolidColor):
         for obj in self.scene.sprite_lists:
             for obj in obj.sprite_list:
                 obj.draw()
+    
+    def create_agent(self, x: int, y: int, agent: Agents) -> None:
+        self.scene.add_sprite(agent.name, agent.value(self, x, y))
