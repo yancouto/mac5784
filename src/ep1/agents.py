@@ -121,11 +121,12 @@ class Herbivore(AgentWithHunger):
                 if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
                     grasses = self.map.scene.get_sprite_list(Agents.Grass.name).sprite_list
                     distances = [arcade.get_distance_between_sprites(self, s) for s in grasses]
-                    max_dist = max(distances)
-                    chase = random.choices(grasses, [max_dist + 1 - d for d in distances])
-                    if len(chase) > 0 and isinstance(chase[0], Grass):
-                        self.state = Herbivore.ChasingFood(chase[0])
-                        return
+                    if len(distances) > 0:
+                        max_dist = max(distances)
+                        chase = random.choices(grasses, [max_dist + 1 - d for d in distances])
+                        if len(chase) > 0 and isinstance(chase[0], Grass):
+                            self.state = Herbivore.ChasingFood(chase[0])
+                            return
                 elif state.time_to_move <= 0:
                     if random.random() < 0.3:
                         self.velocity = [0, 0]
@@ -154,6 +155,8 @@ class Herbivore(AgentWithHunger):
                         self.state = Herbivore.Idle.random(0.5)
             case _:
                 raise ValueError("Unknown state")
+                
+    
 
 class Agents(Enum):
     Grass = Grass
