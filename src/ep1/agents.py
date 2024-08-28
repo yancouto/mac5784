@@ -1,10 +1,11 @@
 from arcade import Sprite, SpriteSolidColor
 import arcade, arcade.color
 from constants import OBJ_SIZE, DT, SCREEN_HEIGHT, SCREEN_WIDTH
-import random
-from util import rand
 from dataclasses import dataclass
 from enum import Enum
+from random import Random
+
+R: Random = Random(2012)
 
 class Agent(Sprite):
     map: "Map"
@@ -65,7 +66,7 @@ class AgentWithHunger(AgentWithHealth):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.hunger = rand(0, 10)
+        self.hunger = R.uniform(0, 10)
 
     def update(self):
         self.hunger = min(100, self.hunger + self.hunger_buildup * DT)
@@ -97,7 +98,7 @@ class Herbivore(AgentWithHunger):
         time_to_move: float
         @staticmethod
         def random(max: float):
-            return Herbivore.Idle(rand(max / 4, max))
+            return Herbivore.Idle(R.uniform(max / 4, max))
     @dataclass
     class ChasingFood(HState):
         target: Grass
@@ -109,9 +110,9 @@ class Herbivore(AgentWithHunger):
     def __init__(self, *args):
         super().__init__(*args, ":resources:images/enemies/wormPink.png", scale=OBJ_SIZE / 128)
         self.state = Herbivore.Idle.random(3)
-        self.idle_speed: float = rand(0.3, 0.8)
-        self.chase_speed: float = rand(1.0, 2.0)
-        self.eat_speed: float = rand(15, 20)
+        self.idle_speed: float = R.uniform(0.3, 0.8)
+        self.chase_speed: float = R.uniform(1.0, 2.0)
+        self.eat_speed: float = R.uniform(15, 20)
     
     def update(self):
         super().update()
@@ -123,15 +124,15 @@ class Herbivore(AgentWithHunger):
                     distances = [arcade.get_distance_between_sprites(self, s) for s in grasses]
                     if len(distances) > 0:
                         max_dist = max(distances)
-                        chase = random.choices(grasses, [max_dist + 1 - d for d in distances])
+                        chase = R.choices(grasses, [max_dist + 1 - d for d in distances])
                         if len(chase) > 0 and isinstance(chase[0], Grass):
                             self.state = Herbivore.ChasingFood(chase[0])
                             return
                 elif state.time_to_move <= 0:
-                    if random.random() < 0.3:
+                    if R.random() < 0.3:
                         self.velocity = [0, 0]
                     else:
-                        self.velocity = arcade.rotate_point(self.idle_speed, 0, 0, 0, rand(0, 360))
+                        self.velocity = arcade.rotate_point(self.idle_speed, 0, 0, 0, R.uniform(0, 360))
                     self.state = Herbivore.Idle.random(8)
             case Herbivore.ChasingFood(target):
                 if target.is_dead:
@@ -169,9 +170,9 @@ class Map(SpriteSolidColor):
         self.center_x = SCREEN_WIDTH / 2
         self.center_y = SCREEN_HEIGHT / 2
         for _ in range(30):
-            left = self.left + random.random() * (self.width - OBJ_SIZE)
-            top = self.top - random.random() * (self.height - OBJ_SIZE)
-            if random.random() < 0.4:
+            left = R.uniform(self.left, self.right - OBJ_SIZE)
+            top = R.uniform(self.bottom + OBJ_SIZE, self.top)
+            if R.random() < 0.4:
                 self.scene.add_sprite(Agents.Herbivore.name, Herbivore(self, left, top))
             else:
                 self.scene.add_sprite(Agents.Grass.name, Grass(self, left, top))
