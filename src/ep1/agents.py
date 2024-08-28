@@ -24,9 +24,17 @@ class Agent(Sprite):
     def hitbox_height(self) -> float:
         return self.top - self.bottom
 
+class DeathReason(Enum):
+    Unknown = "unknown"
+    Hunger = "hunger"
+
 class AgentWithHealth(Agent):
     health = 100.0
     health_regen = 0.0
+    
+    def __init__(self, *args, **kwargs):
+        self.health = kwargs.pop("health", 100.0)
+        super().__init__(*args, **kwargs)
 
     def draw(self, **kwargs):
         super().draw(**kwargs)
@@ -46,13 +54,27 @@ class AgentWithHealth(Agent):
         self.health -= health_drop
         return health_drop
     
+    def death_reason(self) -> DeathReason:
+        return DeathReason.Unknown
+    
+    def on_death(self, reason: DeathReason) -> None:
+        # By default, just disappear
+        self.kill()
+    
     def update(self):
         super().update()
         if self.health <= 0:
-            print("%s died" % self)
-            self.kill()
+            reason = self.death_reason()
+            print("%s died of %s" % [self, reason.value])
+            self.on_death(reason)
         else:
-            self.health = min(100, self.health + self.health_regen * DT)
+            self.health = max(0, min(100, self.health + self.health_regen * DT))
+
+class Carcass(AgentWithHealth):
+    # Rotting
+    health_regen = -2
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, ":resources:images/enemies/wormGreen_dead.png", scale=OBJ_SIZE / 128, **kwargs)
 
 class Grass(AgentWithHealth):
     health_regen = 5.0
@@ -88,6 +110,9 @@ class AgentWithHunger(AgentWithHealth):
     @property
     def is_hungry(self) -> bool:
         return self.hunger >= 50.0
+    
+    def death_reason(self) -> DeathReason:
+        return super().death_reason() if self.hunger >= 99 else DeathReason.Hunger
 
 class Herbivore(AgentWithHunger):
     HEALTH_TO_HUNGER: float = 1.2
@@ -113,6 +138,11 @@ class Herbivore(AgentWithHunger):
         self.idle_speed: float = R.uniform(0.3, 0.8)
         self.chase_speed: float = R.uniform(1.0, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
+    
+    def on_death(self, reason: DeathReason) -> None:
+        super().on_death(reason)
+        init_health = 70 if reason == DeathReason.Hunger else 100
+        self.map.scene.add_sprite(Agents.Carcass.name, Carcass(self.map, self.left, self.top, health = init_health))
     
     def update(self):
         super().update()
@@ -162,6 +192,7 @@ class Herbivore(AgentWithHunger):
 class Agents(Enum):
     Grass = Grass
     Herbivore = Herbivore
+    Carcass = Carcass
 
 class Map(SpriteSolidColor):
     scene = arcade.Scene()
