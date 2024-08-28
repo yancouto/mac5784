@@ -8,6 +8,7 @@ from typing import Optional
 import math
 
 R: Random = Random(2012)
+SPEED_MULTIPLIER: int = 1
 
 class Agent(Sprite):
     map: "Map"
@@ -321,17 +322,18 @@ class Map(SpriteSolidColor):
             self.create_agent(left, top, R.choices([Agents.Grass, Agents.Herbivore, Agents.Carnivore], [6, 3, 1])[0])
 
     def update(self):
-        for list in self.scene.sprite_lists:
-            for obj in list.sprite_list:
-                obj.update()
-                if obj.left < self.left:
-                    obj.change_x = abs(obj.change_x)
-                elif obj.right > self.right:
-                    obj.change_x = -abs(obj.change_x)
-                elif obj.top > self.top:
-                    obj.change_y = -abs(obj.change_y)
-                elif obj.bottom < self.bottom:
-                    obj.change_y = abs(obj.change_y)
+        for _ in range(SPEED_MULTIPLIER):
+            for list in self.scene.sprite_lists:
+                for obj in list.sprite_list:
+                    obj.update()
+                    if obj.left < self.left:
+                        obj.change_x = abs(obj.change_x)
+                    elif obj.right > self.right:
+                        obj.change_x = -abs(obj.change_x)
+                    elif obj.top > self.top:
+                        obj.change_y = -abs(obj.change_y)
+                    elif obj.bottom < self.bottom:
+                        obj.change_y = abs(obj.change_y)
 
     def draw(self, **kwargs) -> None:
         super().draw(**kwargs)
