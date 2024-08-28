@@ -9,6 +9,7 @@ class Game(Window):
     cur_agent_text: Text
     grass_count: Text
     herbivore_count: Text
+    carnivore_count: Text
 
     def __init__(self):
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "EP1") # type: ignore
@@ -16,6 +17,7 @@ class Game(Window):
         self.cur_agent_text = Text("", 10, SCREEN_HEIGHT - 20, arcade.color.BLACK, 12)
         self.grass_count = Text("", 10, SCREEN_HEIGHT - 40, arcade.color.BLACK, 12)
         self.herbivore_count = Text("", 10, SCREEN_HEIGHT - 60, arcade.color.BLACK, 12)
+        self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 80, arcade.color.BLACK, 12)
         self.update_agent_text()
         self.update_counts()
 
@@ -24,6 +26,7 @@ class Game(Window):
         self.cur_agent_text.draw()
         self.grass_count.draw()
         self.herbivore_count.draw()
+        self.carnivore_count.draw()
         self.map.draw()
     
     def on_update(self, delta_time: float):
@@ -36,14 +39,18 @@ class Game(Window):
     def update_counts(self):
         grass_count = len(self.map.scene[Agents.Grass.name])
         herbivore_count = len(self.map.scene[Agents.Herbivore.name])
+        carnivore_count = len(self.map.scene[Agents.Carnivore.name])
         self.grass_count.text = f"Grass total: {grass_count}"
         self.herbivore_count.text = f"Herbivores total: {herbivore_count}"
+        self.carnivore_count.text = f"Carnivores total: {carnivore_count}"
     
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == key.H:
             self.cur_agent = Agents.Herbivore
         elif symbol == key.G:
             self.cur_agent = Agents.Grass
+        elif symbol == key.C:
+            self.cur_agent = Agents.Carnivore
         else:
             return
         self.update_agent_text()

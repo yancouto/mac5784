@@ -4,6 +4,7 @@ from constants import OBJ_SIZE, DT, SCREEN_HEIGHT, SCREEN_WIDTH
 from dataclasses import dataclass
 from enum import Enum
 from random import Random
+from typing import Optional
 
 R: Random = Random(2012)
 
@@ -23,10 +24,22 @@ class Agent(Sprite):
     @property
     def hitbox_height(self) -> float:
         return self.top - self.bottom
+    
+    def find_close(self, agent: "Agents") -> Optional[Sprite]:
+        all = self.map.scene.get_sprite_list(agent.name).sprite_list
+        distances = [arcade.get_distance_between_sprites(self, s) for s in all]
+        if len(distances) > 0:
+            max_dist = max(distances)
+            choice = R.choices(all, [max_dist + 1 - d for d in distances])
+            if len(choice) > 0:
+                return choice[0]
+        return None
 
 class DeathReason(Enum):
     Unknown = "unknown"
     Hunger = "hunger"
+    Attack = "attack"
+    Eaten = "eaten"
 
 class AgentWithHealth(Agent):
     health = 100.0
@@ -55,7 +68,7 @@ class AgentWithHealth(Agent):
         return health_drop
     
     def death_reason(self) -> DeathReason:
-        return DeathReason.Unknown
+        return DeathReason.Attack
     
     def on_death(self, reason: DeathReason) -> None:
         # By default, just disappear
@@ -65,7 +78,7 @@ class AgentWithHealth(Agent):
         super().update()
         if self.health <= 0:
             reason = self.death_reason()
-            print("%s died of %s" % [self, reason.value])
+            print("%s died of %s" % (self, reason.value))
             self.on_death(reason)
         else:
             self.health = max(0, min(100, self.health + self.health_regen * DT))
@@ -73,8 +86,12 @@ class AgentWithHealth(Agent):
 class Carcass(AgentWithHealth):
     # Rotting
     health_regen = -2
-    def __init__(self, *args, **kwargs):
+    original: "Agents"
+    def __init__(self, *args, agent, **kwargs):
+        self.original = agent
         super().__init__(*args, ":resources:images/enemies/wormGreen_dead.png", scale=OBJ_SIZE / 128, **kwargs)
+    def death_reason(self) -> DeathReason:
+        return DeathReason.Eaten
 
 class Grass(AgentWithHealth):
     health_regen = 5.0
@@ -142,7 +159,7 @@ class Herbivore(AgentWithHunger):
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
         init_health = 70 if reason == DeathReason.Hunger else 100
-        self.map.scene.add_sprite(Agents.Carcass.name, Carcass(self.map, self.left, self.top, health = init_health))
+        self.map.scene.add_sprite(Agents.Carcass.name, Carcass(self.map, self.left, self.top, agent=Agents.Herbivore, health = init_health))
     
     def update(self):
         super().update()
@@ -150,15 +167,11 @@ class Herbivore(AgentWithHunger):
             case Herbivore.Idle(_) as state:
                 state.time_to_move -= DT
                 if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
-                    grasses = self.map.scene.get_sprite_list(Agents.Grass.name).sprite_list
-                    distances = [arcade.get_distance_between_sprites(self, s) for s in grasses]
-                    if len(distances) > 0:
-                        max_dist = max(distances)
-                        chase = R.choices(grasses, [max_dist + 1 - d for d in distances])
-                        if len(chase) > 0 and isinstance(chase[0], Grass):
-                            self.state = Herbivore.ChasingFood(chase[0])
-                            return
-                elif state.time_to_move <= 0:
+                    grass = self.find_close(Agents.Grass)
+                    if isinstance(grass, Grass):
+                        self.state = Herbivore.ChasingFood(grass)
+                        return
+                if state.time_to_move <= 0:
                     if R.random() < 0.3:
                         self.velocity = [0, 0]
                     else:
@@ -186,13 +199,105 @@ class Herbivore(AgentWithHunger):
                         self.state = Herbivore.Idle.random(0.5)
             case _:
                 raise ValueError("Unknown state")
-                
     
+class Carnivore(AgentWithHunger):
+    HEALTH_TO_HUNGER: float = 1.4
+    health_regen = 1.0
+    class CState: pass
+    @dataclass
+    class Idle(CState):
+        time_to_move: float
+        @staticmethod
+        def random(max: float):
+            return Carnivore.Idle(R.uniform(max / 4, max))
+    @dataclass
+    class ChasingPrey(CState):
+        target: Herbivore | Carcass
+    @dataclass
+    class AttackCooldown(CState):
+        time_to_wait: float
+        target: Herbivore
+    @dataclass
+    class Eating(CState):
+        target: Carcass
+    state: CState
+    
+    def __init__(self, *args):
+        super().__init__(*args, ":resources:images/enemies/frog.png", scale=OBJ_SIZE / 128)
+        self.state = Carnivore.Idle.random(3)
+        self.idle_speed: float = R.uniform(0.3, 0.8)
+        self.chase_speed: float = R.uniform(1.0, 2.0)
+        self.eat_speed: float = R.uniform(15, 20)
+        self.attack_damage: float = R.uniform(20, 50)
+    
+    def on_death(self, reason: DeathReason) -> None:
+        super().on_death(reason)
+        init_health = 70 if reason == DeathReason.Hunger else 100
+        self.map.scene.add_sprite(Agents.Carcass.name, Carcass(self.map, self.left, self.top, agent=Agents.Carnivore, health = init_health))
+    
+    def update(self):
+        super().update()
+        while True:
+            match self.state:
+                case Carnivore.Idle(_) as state:
+                    state.time_to_move -= DT
+                    if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
+                        carcass = self.find_close(Agents.Carcass)
+                        if isinstance(carcass, Carcass):
+                            self.state = Carnivore.ChasingPrey(carcass)
+                            return
+                        herbivore = self.find_close(Agents.Herbivore)
+                        if isinstance(herbivore, Herbivore):
+                            self.state = Carnivore.ChasingPrey(herbivore)
+                            return
+                    if state.time_to_move <= 0:
+                        if R.random() < 0.3:
+                            self.velocity = [0, 0]
+                        else:
+                            self.velocity = arcade.rotate_point(self.idle_speed, 0, 0, 0, R.uniform(0, 360))
+                        self.state = Carnivore.Idle.random(8)
+                case Carnivore.ChasingPrey(target):
+                    if target.is_dead:
+                        self.state = Carnivore.Idle(0)
+                        continue
+                    elif self.collides_with_sprite(target):
+                        self.velocity = [0, 0]
+                        if isinstance(target, Carcass):
+                            self.state = Carnivore.Eating(target)
+                        elif isinstance(target, Herbivore):
+                            target.remove_health(self.attack_damage)
+                            self.state = Carnivore.AttackCooldown(1, target)
+                        else:
+                            raise ValueError("Unknown target type")
+                    else:
+                        self.angle = 0
+                        self.velocity = [0, 0]
+                        self.face_point(target.position)
+                        self.angle += 90
+                        self.forward(self.chase_speed)
+                case Carnivore.AttackCooldown(_, target) as state:
+                    state.time_to_wait -= DT
+                    if state.time_to_wait <= 0:
+                        self.state = Carnivore.ChasingPrey(target)
+                        continue
+                case Carnivore.Eating(target):
+                    if target.is_dead:
+                        self.state = Carnivore.Idle.random(1)
+                    else:
+                        eaten = target.remove_health(self.eat_speed * DT)
+                        self.remove_hunger(eaten * Carnivore.HEALTH_TO_HUNGER)
+                        if self.hunger <= 0:
+                            self.state = Carnivore.Idle.random(1)
+                case _:
+                    raise ValueError("Unknown state")
+            # The default is to end unless we use continue
+            return
 
 class Agents(Enum):
     Grass = Grass
     Herbivore = Herbivore
     Carcass = Carcass
+    Carnivore = Carnivore
 
 class Map(SpriteSolidColor):
     scene = arcade.Scene()
@@ -200,13 +305,12 @@ class Map(SpriteSolidColor):
         super().__init__(800, 800, (0, 0, 0))
         self.center_x = SCREEN_WIDTH / 2
         self.center_y = SCREEN_HEIGHT / 2
+        for agent in Agents:
+            self.scene.add_sprite_list(agent.name)
         for _ in range(30):
             left = R.uniform(self.left, self.right - OBJ_SIZE)
             top = R.uniform(self.bottom + OBJ_SIZE, self.top)
-            if R.random() < 0.4:
-                self.scene.add_sprite(Agents.Herbivore.name, Herbivore(self, left, top))
-            else:
-                self.scene.add_sprite(Agents.Grass.name, Grass(self, left, top))
+            self.create_agent(left, top, R.choices([Agents.Grass, Agents.Herbivore, Agents.Carnivore], [6, 3, 1])[0])
 
     def update(self):
         for list in self.scene.sprite_lists:
@@ -227,5 +331,5 @@ class Map(SpriteSolidColor):
             for obj in obj.sprite_list:
                 obj.draw()
     
-    def create_agent(self, x: int, y: int, agent: Agents) -> None:
+    def create_agent(self, x: float, y: float, agent: Agents) -> None:
         self.scene.add_sprite(agent.name, agent.value(self, x, y))
