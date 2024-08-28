@@ -159,7 +159,7 @@ class Herbivore(AgentWithHunger):
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
         init_health = 70 if reason == DeathReason.Hunger else 100
-        self.map.scene.add_sprite(Agents.Carcass.name, Carcass(self.map, self.left, self.top, agent=Agents.Herbivore, health = init_health))
+        self.map.create_agent(self.left, self.top, Agents.Carcass, agent=Agents.Herbivore, health = init_health)
     
     def update(self):
         super().update()
@@ -233,7 +233,7 @@ class Carnivore(AgentWithHunger):
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
         init_health = 70 if reason == DeathReason.Hunger else 100
-        self.map.scene.add_sprite(Agents.Carcass.name, Carcass(self.map, self.left, self.top, agent=Agents.Carnivore, health = init_health))
+        self.map.create_agent(self.left, self.top, Agents.Carcass, agent=Agents.Carnivore, health = init_health)
     
     def update(self):
         super().update()
@@ -331,5 +331,5 @@ class Map(SpriteSolidColor):
             for obj in obj.sprite_list:
                 obj.draw()
     
-    def create_agent(self, x: float, y: float, agent: Agents) -> None:
-        self.scene.add_sprite(agent.name, agent.value(self, x, y))
+    def create_agent(self, x: float, y: float, agent_type: Agents, **kwargs) -> None:
+        self.scene.add_sprite(agent_type.name, agent_type.value(self, x, y, **kwargs))
