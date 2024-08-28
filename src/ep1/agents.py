@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from random import Random
 from typing import Optional
+import math
 
 R: Random = Random(2012)
 
@@ -134,6 +135,7 @@ class AgentWithHunger(AgentWithHealth):
 class Herbivore(AgentWithHunger):
     HEALTH_TO_HUNGER: float = 1.2
     health_regen = 1.0
+    time_to_procreate = math.inf
     class HState: pass
     @dataclass
     class Idle(HState):
@@ -149,12 +151,13 @@ class Herbivore(AgentWithHunger):
         target: Grass
     state: HState
     
-    def __init__(self, *args):
-        super().__init__(*args, ":resources:images/enemies/wormPink.png", scale=OBJ_SIZE / 128)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, ":resources:images/enemies/wormPink.png", scale=OBJ_SIZE / 128, **kwargs)
         self.state = Herbivore.Idle.random(3)
         self.idle_speed: float = R.uniform(0.3, 0.8)
         self.chase_speed: float = R.uniform(1.0, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
+        self.time_to_procreate = R.uniform(10, 60)
     
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
@@ -163,6 +166,7 @@ class Herbivore(AgentWithHunger):
     
     def update(self):
         super().update()
+        self.time_to_procreate -= DT
         match self.state:
             case Herbivore.Idle(_) as state:
                 state.time_to_move -= DT
@@ -177,6 +181,10 @@ class Herbivore(AgentWithHunger):
                     else:
                         self.velocity = arcade.rotate_point(self.idle_speed, 0, 0, 0, R.uniform(0, 360))
                     self.state = Herbivore.Idle.random(8)
+                elif self.time_to_procreate <= 0:
+                    print("%s procreated" % self)
+                    self.map.create_agent(max(0, self.left - self.width), self.top, Agents.Herbivore, health = 20)
+                    self.time_to_procreate = R.uniform(10, 60)
             case Herbivore.ChasingFood(target):
                 if target.is_dead:
                     self.state = Herbivore.Idle.random(1)
@@ -332,4 +340,7 @@ class Map(SpriteSolidColor):
                 obj.draw()
     
     def create_agent(self, x: float, y: float, agent_type: Agents, **kwargs) -> None:
+        if len(self.scene.get_sprite_list(agent_type.name)) > 1000:
+            # TOO MANY
+            return
         self.scene.add_sprite(agent_type.name, agent_type.value(self, x, y, **kwargs))
