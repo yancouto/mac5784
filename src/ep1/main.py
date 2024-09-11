@@ -47,7 +47,7 @@ class Game(Window):
         self.grass_count.text = f"Grass total: {grass_count}"
         self.herbivore_count.text = f"Herbivores total: {herbivore_count}"
         self.carnivore_count.text = f"Carnivores total: {carnivore_count}"
-        self.simulation_speed.text = f"Simulation speed: {agents.SPEED_MULTIPLIER}x (use arrows)"
+        self.simulation_speed.text = f"Simulation speed: {agents.SPEED_MULTIPLIER}x (use arrows to change)"
     
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == key.H:
