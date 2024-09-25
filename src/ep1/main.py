@@ -85,6 +85,7 @@ class Game(Window):
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
         if button == arcade.MOUSE_BUTTON_LEFT and self.map.collides_with_point((x, y)):
             self.map.create_agent(x, y, self.cur_agent)
+            self.graph.add_vertical_mark()
 
 def main():
     game = Game()

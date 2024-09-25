@@ -4,6 +4,7 @@ from common import Updatable
 import arcade, arcade.color
 from arcade.arcade_types import Point, Vector
 from enum import Enum
+from dataclasses import dataclass
 
 COLLECT_INTERVAL: float = 6.0
 COLORS = [arcade.color.GREEN, arcade.color.BLUE, arcade.color.RED]
@@ -13,14 +14,19 @@ class GraphMode(Enum):
     Lines = 0
     AreaPct = 1
 
+@dataclass
+class DataPoint:
+    values: List[float]
+    vertical_mark: bool
 
 class HistoricalData(Updatable):
-    data: List[List[float]]
+    data: List[DataPoint]
     time_till_collect: float
     data_collector: Callable[[], List[float]]
     bottom_left: Point
     size: Vector
     mode: GraphMode = GraphMode.AreaPct
+    pending_mark: bool = False
     
     def __init__(self, bottom_left: Point, size: Vector, data_collector: Callable[[], List[float]]):
         self.data = []
@@ -30,10 +36,17 @@ class HistoricalData(Updatable):
         self.size = size
         self.collect_data()
     
+    def value_count(self) -> int:
+        return len(self.data[0].values)
+    
+    def add_vertical_mark(self) -> None:
+        self.pending_mark = True
+    
     def collect_data(self):
-        self.data.append(self.data_collector())
+        self.data.append(DataPoint(self.data_collector(), self.pending_mark))
+        self.pending_mark = False
         if len(self.data) > 1:
-            assert(len(self.data[-1]) == len(self.data[-2]))
+            assert(len(self.data[-1].values) == len(self.data[-2].values))
         
     def update(self):
         self.time_till_collect -= DT
@@ -69,10 +82,10 @@ class HistoricalData(Updatable):
     
     def draw_lines(self) -> None:
         (x, y) = self.bottom_left
-        for i in range(len(self.data[0])):
+        for i in range(self.value_count()):
             points = []
             for di in range(len(self.data)):
-                points.append((x + di * DX, y + self.data[di][i] * 10))
+                points.append((x + di * DX, y + self.data[di].values[i] * 10))
             arcade.draw_line_strip(
                 points,
                 COLORS[i],
@@ -83,13 +96,13 @@ class HistoricalData(Updatable):
         (x, y) = self.bottom_left
         (w, h) = self.size
         points = []
-        for i in range(len(self.data[0])):
+        for i in range(self.value_count()):
             points.append([])
         for di in range(len(self.data)):
-            tot = sum(self.data[di])
+            tot = sum(self.data[di].values)
             cur = 0
-            for i in range(len(self.data[di])):
-                cur += self.data[di][i]
+            for i in range(self.value_count()):
+                cur += self.data[di].values[i]
                 pct = cur / tot if tot > 0 else 0
                 points[i].append((x + di * DX, y + pct * h))
         for ps in points:
@@ -100,7 +113,23 @@ class HistoricalData(Updatable):
                 points[i] + points[i + 1][::-1],
                 COLORS[i],
             )
+    
+    def draw_mark(self, di: int) -> None:
+        (x, y) = self.bottom_left
+        (w, h) = self.size
+        arcade.draw_line(
+            x + di * DX, y,
+            x + di * DX, y + h + 10,
+            arcade.color.BLACK,
+            1
+        )
             
+    def draw_marks(self) -> None:
+        for di in range(len(self.data)):
+            if self.data[di].vertical_mark:
+                self.draw_mark(di)
+        if self.pending_mark:
+            self.draw_mark(len(self.data))
     
     def draw(self) -> None:
         self.draw_outline()
@@ -112,3 +141,4 @@ class HistoricalData(Updatable):
                 self.draw_lines()
             case GraphMode.AreaPct:
                 self.draw_area_pct()
+        self.draw_marks()
