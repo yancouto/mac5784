@@ -3,6 +3,8 @@ from arcade import Window, key, Text
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT
 import agents
 from agents import Map, Agents
+from historical_data import HistoricalData
+from typing import List
 
 class Game(Window):
     map = Map()
@@ -12,6 +14,7 @@ class Game(Window):
     herbivore_count: Text
     carnivore_count: Text
     simulation_speed: Text
+    graph: HistoricalData
 
     def __init__(self):
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "EP1") # type: ignore
@@ -23,6 +26,7 @@ class Game(Window):
         self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 100, arcade.color.BLACK, 12)
         self.update_agent_text()
         self.update_counts()
+        self.graph = HistoricalData(self.get_data)
 
     def on_draw(self):
         arcade.start_render()
@@ -32,13 +36,24 @@ class Game(Window):
         self.herbivore_count.draw()
         self.carnivore_count.draw()
         self.map.draw()
+        self.graph.draw()
     
     def on_update(self, delta_time: float):
         self.map.update()
         self.update_counts()
+        for _ in range(agents.SPEED_MULTIPLIER):
+            self.graph.update()
     
     def update_agent_text(self):
         self.cur_agent_text.text = f"Click to create: {self.cur_agent.name} (use G, H, C to change)"
+    
+    def get_data(self) -> List[float]:
+        return [
+            len(self.map.scene[Agents.Grass.name]),
+            len(self.map.scene[Agents.Herbivore.name]),
+            len(self.map.scene[Agents.Carnivore.name])
+        ]
+        
     
     def update_counts(self):
         grass_count = len(self.map.scene[Agents.Grass.name])

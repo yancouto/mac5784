@@ -44,6 +44,7 @@ Para rodar, se já tiver Python e Python Arcade instalado, basta rodar:
 
 Para instalar Python Arcade, faça:
 - `pip install arcade`
+
 Ou, se já você utilizar `pipenv` e não quiser instalar Python Arcade globalmente, faça:
 - `pipenv install`
 

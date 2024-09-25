@@ -4,7 +4,8 @@ from constants import OBJ_SIZE, DT, SCREEN_HEIGHT, SCREEN_WIDTH
 from dataclasses import dataclass
 from enum import Enum
 from random import Random
-from typing import Optional
+from typing import Optional, List
+from common import Updatable
 import math
 
 R: Random = Random(2012)
@@ -310,6 +311,7 @@ class Agents(Enum):
 
 class Map(SpriteSolidColor):
     scene = arcade.Scene()
+    updatables: List[Updatable] = []
     def __init__(self) -> None:
         super().__init__(800, 800, (0, 0, 0))
         self.center_x = SCREEN_WIDTH / 2
@@ -334,6 +336,8 @@ class Map(SpriteSolidColor):
                         obj.change_y = -abs(obj.change_y)
                     elif obj.bottom < self.bottom:
                         obj.change_y = abs(obj.change_y)
+            for update in self.updatables:
+                update.update()
 
     def draw(self, **kwargs) -> None:
         super().draw(**kwargs)
