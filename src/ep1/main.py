@@ -26,7 +26,7 @@ class Game(Window):
         self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 100, arcade.color.BLACK, 12)
         self.update_agent_text()
         self.update_counts()
-        self.graph = HistoricalData(self.get_data)
+        self.graph = HistoricalData((SCREEN_WIDTH - 450, SCREEN_HEIGHT / 2), (200, 200), self.get_data)
 
     def on_draw(self):
         arcade.start_render()
