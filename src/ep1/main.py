@@ -6,6 +6,8 @@ from agents import Map, Agents
 from historical_data import HistoricalData
 from typing import List
 
+SPEED_MULTIPLIER: int = 1
+
 class Game(Window):
     map = Map()
     cur_agent: Agents = Agents.Grass
@@ -39,10 +41,10 @@ class Game(Window):
         self.graph.draw()
     
     def on_update(self, delta_time: float):
-        self.map.update()
-        self.update_counts()
-        for _ in range(agents.SPEED_MULTIPLIER):
+        for _ in range(SPEED_MULTIPLIER):
+            self.map.update()
             self.graph.update()
+        self.update_counts()
     
     def update_agent_text(self):
         self.cur_agent_text.text = f"Click to create: {self.cur_agent.name} (use G, H, C to change)"
@@ -62,9 +64,10 @@ class Game(Window):
         self.grass_count.text = f"Grass total: {grass_count}"
         self.herbivore_count.text = f"Herbivores total: {herbivore_count}"
         self.carnivore_count.text = f"Carnivores total: {carnivore_count}"
-        self.simulation_speed.text = f"Simulation speed: {agents.SPEED_MULTIPLIER}x (use arrows to change)"
+        self.simulation_speed.text = f"Simulation speed: {SPEED_MULTIPLIER}x (use arrows to change)"
     
     def on_key_press(self, symbol: int, modifiers: int):
+        global SPEED_MULTIPLIER
         if symbol == key.H:
             self.cur_agent = Agents.Herbivore
         elif symbol == key.G:
@@ -72,9 +75,9 @@ class Game(Window):
         elif symbol == key.C:
             self.cur_agent = Agents.Carnivore
         elif symbol == key.RIGHT:
-            agents.SPEED_MULTIPLIER = agents.SPEED_MULTIPLIER + 1
+            SPEED_MULTIPLIER = SPEED_MULTIPLIER + 1
         elif symbol == key.LEFT:
-            agents.SPEED_MULTIPLIER = max(0, agents.SPEED_MULTIPLIER - 1)
+            SPEED_MULTIPLIER = max(0, SPEED_MULTIPLIER - 1)
         else:
             return
         self.update_agent_text()

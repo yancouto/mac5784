@@ -1,9 +1,7 @@
-from typing import DefaultDict, List, Callable, Dict
-from collections import defaultdict
+from typing import List, Callable
 from constants import DT, SCREEN_HEIGHT, SCREEN_WIDTH
 from common import Updatable
 import arcade, arcade.color
-from arcade import Sprite
 from arcade.arcade_types import Point, Vector
 
 COLLECT_INTERVAL: float = 6.0
