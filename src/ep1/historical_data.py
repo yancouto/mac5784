@@ -37,15 +37,28 @@ class HistoricalData(Updatable):
     def draw_outline(self) -> None:
         (x, y) = self.bottom_left
         (w, h) = self.size
-        arcade.draw_line_strip(
+        for line in [
             [
                 (x, y + h),
                 (x, y),
                 (x + w, y),
             ],
-            arcade.color.BLACK,
-            3
-        )
+            [
+                (x - 7, y + h - 10),
+                (x, y + h),
+                (x + 7, y + h - 10),
+            ],
+            [
+                (x + w - 10, y - 7),
+                (x + w, y),
+                (x + w - 10, y + 7),
+            ],
+        ]:
+            arcade.draw_line_strip(
+                line,
+                arcade.color.BLACK,
+                3
+            )
     
     def draw(self) -> None:
         self.draw_outline()
