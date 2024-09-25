@@ -30,12 +30,13 @@ class Agent(Sprite):
     def hitbox_height(self) -> float:
         return self.top - self.bottom
     
-    def find_close(self, agent: "Agents") -> Optional[Sprite]:
+    def find_close(self, agent: "Agents", max_dist: float = math.inf) -> Optional[Sprite]:
+        # TODO: limit max distance
         all = self.map.scene.get_sprite_list(agent.name).sprite_list
         distances = [arcade.get_distance_between_sprites(self, s) for s in all]
         if len(distances) > 0:
-            max_dist = max(distances)
-            choice = R.choices(all, [max_dist + 1 - d for d in distances])
+            furthest = max(distances)
+            choice = R.choices(all, [furthest + 1 - d for d in distances])
             if len(choice) > 0:
                 return choice[0]
         return None
@@ -185,6 +186,10 @@ class Herbivore(AgentWithProcreation):
     @dataclass
     class Eating(HState):
         target: Grass
+    @dataclass
+    class AttackCooldown(HState):
+        time_to_wait: float
+        target: "Carnivore"
     state: HState
     
     def __init__(self, *args, **kwargs):
@@ -205,6 +210,7 @@ class Herbivore(AgentWithProcreation):
         match self.state:
             case Herbivore.Idle(_) as state:
                 state.time_to_move -= DT
+                # TODO: If close to carnivore on cooldown, attack it.
                 if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
                     grass = self.find_close(Agents.Grass)
                     if isinstance(grass, Grass):
