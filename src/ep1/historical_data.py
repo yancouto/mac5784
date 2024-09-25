@@ -3,10 +3,16 @@ from constants import DT, SCREEN_HEIGHT, SCREEN_WIDTH
 from common import Updatable
 import arcade, arcade.color
 from arcade.arcade_types import Point, Vector
+from enum import Enum
 
 COLLECT_INTERVAL: float = 6.0
 COLORS = [arcade.color.GREEN, arcade.color.BLUE, arcade.color.RED]
 DX = 10
+
+class GraphMode(Enum):
+    Lines = 0
+    AreaPct = 1
+
 
 class HistoricalData(Updatable):
     data: List[List[float]]
@@ -14,6 +20,7 @@ class HistoricalData(Updatable):
     data_collector: Callable[[], List[float]]
     bottom_left: Point
     size: Vector
+    mode: GraphMode = GraphMode.AreaPct
     
     def __init__(self, bottom_left: Point, size: Vector, data_collector: Callable[[], List[float]]):
         self.data = []
@@ -60,12 +67,8 @@ class HistoricalData(Updatable):
                 3
             )
     
-    def draw(self) -> None:
-        self.draw_outline()
+    def draw_lines(self) -> None:
         (x, y) = self.bottom_left
-        (w, h) = self.size
-        while len(self.data) * DX > w:
-            self.data.pop(0)
         for i in range(len(self.data[0])):
             points = []
             for di in range(len(self.data)):
@@ -75,3 +78,37 @@ class HistoricalData(Updatable):
                 COLORS[i],
                 2
             )
+    
+    def draw_area_pct(self) -> None:
+        (x, y) = self.bottom_left
+        (w, h) = self.size
+        points = []
+        for i in range(len(self.data[0])):
+            points.append([])
+        for di in range(len(self.data)):
+            tot = sum(self.data[di])
+            cur = 0
+            for i in range(len(self.data[di])):
+                cur += self.data[di][i]
+                pct = cur / tot if tot > 0 else 0
+                points[i].append((x + di * DX, y + pct * h))
+        for ps in points:
+            ps.append((ps[-1][0] + DX, ps[-1][1]))
+        points.insert(0, [(x, y), (x + DX * len(self.data), y)])
+        for i in range(len(points) - 1):
+            arcade.draw_polygon_filled(
+                points[i] + points[i + 1][::-1],
+                COLORS[i],
+            )
+            
+    
+    def draw(self) -> None:
+        self.draw_outline()
+        (w, h) = self.size
+        while len(self.data) * DX > w:
+            self.data.pop(0)
+        match self.mode:
+            case GraphMode.Lines:
+                self.draw_lines()
+            case GraphMode.AreaPct:
+                self.draw_area_pct()
