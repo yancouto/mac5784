@@ -87,18 +87,19 @@ class AgentWithHealth(Agent):
             self.health = max(0, min(100, self.health + self.health_regen * DT))
 
 class Carcass(AgentWithHealth):
-    # Rotting
     health_regen = 0
+    rot_speed: float
     original: "Agents"
     total_rotted: float = 0
     def __init__(self, *args, agent, **kwargs):
         self.original = agent
+        self.rot_speed = R.uniform(1, 5)
         super().__init__(*args, ":resources:images/enemies/wormGreen_dead.png", scale=OBJ_SIZE / 128, **kwargs)
     def update(self):
-        self.total_rotted += self.remove_health(2 * DT)
+        self.total_rotted += self.remove_health(self.rot_speed * DT)
         super().update()
     def on_death(self, reason: DeathReason) -> None:
-        if R.randint(0, 120) < self.total_rotted:
+        if R.randint(0, 150) < self.total_rotted:
             self.map.create_agent(self.left, self.top, Agents.Grass)
         return super().on_death(reason)
     def death_reason(self) -> DeathReason:
@@ -167,10 +168,10 @@ class Herbivore(AgentWithHunger):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, ":resources:images/enemies/wormPink.png", scale=OBJ_SIZE / 128, **kwargs)
         self.state = Herbivore.Idle.random(3)
-        self.idle_speed: float = R.uniform(0.3, 0.8)
-        self.chase_speed: float = R.uniform(1.0, 2.0)
+        self.idle_speed: float = R.uniform(0.3, 1.2)
+        self.chase_speed: float = R.uniform(0.3, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
-        self.time_to_procreate = R.uniform(10, 60)
+        self.time_to_procreate = R.expovariate(1 / 60)
     
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
@@ -331,7 +332,7 @@ class Map(SpriteSolidColor):
         for _ in range(30):
             left = R.uniform(self.left, self.right - OBJ_SIZE)
             top = R.uniform(self.bottom + OBJ_SIZE, self.top)
-            self.create_agent(left, top, R.choices([Agents.Grass, Agents.Herbivore, Agents.Carnivore], [6, 3, 1])[0])
+            self.create_agent(left, top, R.choices([Agents.Grass, Agents.Herbivore, Agents.Carnivore], [6, 3, 2])[0])
 
     def update(self):
         for list in self.scene.sprite_lists:
