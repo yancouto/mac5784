@@ -13,11 +13,14 @@ R: Random = Random(2012)
 class Agent(Sprite):
     map: "Map"
     
-    def __init__(self, map, left, top, *args, **kwargs):
+    type: "Agents"
+    
+    def __init__(self, map, left, top, *args, type, **kwargs):
         super().__init__(*args, **kwargs, hit_box_algorithm="Simple")
         self.left = left
         self.top = top
         self.map = map
+        self.type = type
     
     @property
     def hitbox_width(self) -> float:
@@ -81,7 +84,7 @@ class AgentWithHealth(Agent):
         super().update()
         if self.health <= 0:
             reason = self.death_reason()
-            print("%s died of %s" % (self, reason.value))
+            #print("%s died of %s" % (self, reason.value))
             self.on_death(reason)
         else:
             self.health = max(0, min(100, self.health + self.health_regen * DT))
@@ -99,8 +102,8 @@ class Carcass(AgentWithHealth):
         self.total_rotted += self.remove_health(self.rot_speed * DT)
         super().update()
     def on_death(self, reason: DeathReason) -> None:
-        if R.randint(0, 150) < self.total_rotted:
-            self.map.create_agent(self.left, self.top, Agents.Grass)
+        if R.randint(0, 200) < self.total_rotted:
+            self.map.create_agent(self.left, self.top, Agents.Grass, health=R.uniform(10, 30))
         return super().on_death(reason)
     def death_reason(self) -> DeathReason:
         if self.total_rotted <= 70:
@@ -110,8 +113,8 @@ class Carcass(AgentWithHealth):
 
 class Grass(AgentWithHealth):
     health_regen = 5.0
-    def __init__(self, *args):
-        super().__init__(*args, ":resources:images/tiles/cactus.png", scale=OBJ_SIZE / 128)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, ":resources:images/tiles/cactus.png", scale=OBJ_SIZE / 128, **kwargs)
 
 class AgentWithHunger(AgentWithHealth):
     HUNGER_DAMAGE: float = 10.0
@@ -146,10 +149,29 @@ class AgentWithHunger(AgentWithHealth):
     def death_reason(self) -> DeathReason:
         return super().death_reason() if self.hunger >= 99 else DeathReason.Hunger
 
-class Herbivore(AgentWithHunger):
+class AgentWithProcreation(AgentWithHunger):
+    time_to_procreate: float
+    procreate_mean: float = 60.0
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.time_to_procreate = R.expovariate(1 / self.procreate_mean)
+    
+    def can_procreate(self) -> bool:
+        return not self.is_hungry
+    
+    def update(self):
+        super().update()
+        if self.can_procreate():
+            self.time_to_procreate -= DT
+            if self.time_to_procreate <= 0:
+                #print("%s procreated" % self)
+                self.map.create_agent(max(0, self.left - self.width), self.top, self.type, health = 20)
+                self.hunger += 30
+                self.time_to_procreate = R.expovariate(1 / self.procreate_mean)
+
+class Herbivore(AgentWithProcreation):
     HEALTH_TO_HUNGER: float = 1.2
     health_regen = 1.0
-    time_to_procreate = math.inf
     class HState: pass
     @dataclass
     class Idle(HState):
@@ -171,7 +193,6 @@ class Herbivore(AgentWithHunger):
         self.idle_speed: float = R.uniform(0.3, 1.2)
         self.chase_speed: float = R.uniform(0.3, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
-        self.time_to_procreate = R.expovariate(1 / 60)
     
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
@@ -195,10 +216,6 @@ class Herbivore(AgentWithHunger):
                     else:
                         self.velocity = arcade.rotate_point(self.idle_speed, 0, 0, 0, R.uniform(0, 360))
                     self.state = Herbivore.Idle.random(8)
-                elif self.time_to_procreate <= 0:
-                    print("%s procreated" % self)
-                    self.map.create_agent(max(0, self.left - self.width), self.top, Agents.Herbivore, health = 20)
-                    self.time_to_procreate = R.uniform(10, 60)
             case Herbivore.ChasingFood(target):
                 if target.is_dead:
                     self.state = Herbivore.Idle.random(1)
@@ -222,9 +239,11 @@ class Herbivore(AgentWithHunger):
             case _:
                 raise ValueError("Unknown state")
     
-class Carnivore(AgentWithHunger):
+class Carnivore(AgentWithProcreation):
     HEALTH_TO_HUNGER: float = 1.4
     health_regen = 1.0
+    procreate_mean = 120.0
+    hunger_buildup = 10.0
     class CState: pass
     @dataclass
     class Idle(CState):
@@ -244,11 +263,11 @@ class Carnivore(AgentWithHunger):
         target: Carcass
     state: CState
     
-    def __init__(self, *args):
-        super().__init__(*args, ":resources:images/enemies/frog.png", scale=OBJ_SIZE / 128)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, ":resources:images/enemies/frog.png", scale=OBJ_SIZE / 128, **kwargs)
         self.state = Carnivore.Idle.random(3)
-        self.idle_speed: float = R.uniform(0.3, 0.8)
-        self.chase_speed: float = R.uniform(1.0, 2.0)
+        self.idle_speed: float = R.uniform(0.3, 1.2)
+        self.chase_speed: float = R.uniform(0.3, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
         self.attack_damage: float = R.uniform(20, 50)
     
@@ -355,6 +374,6 @@ class Map(SpriteSolidColor):
     
     def create_agent(self, x: float, y: float, agent_type: Agents, **kwargs) -> None:
         if len(self.scene.get_sprite_list(agent_type.name)) > 1000:
-            # TOO MANY
+            print("TOO MANY AGENTS")
             return
-        self.scene.add_sprite(agent_type.name, agent_type.value(self, x, y, **kwargs))
+        self.scene.add_sprite(agent_type.name, agent_type.value(self, x, y, type=agent_type, **kwargs))
