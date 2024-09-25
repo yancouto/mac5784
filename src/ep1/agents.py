@@ -42,6 +42,7 @@ class DeathReason(Enum):
     Hunger = "hunger"
     Attack = "attack"
     Eaten = "eaten"
+    Rotted = "rotted"
 
 class AgentWithHealth(Agent):
     health = 100.0
@@ -87,13 +88,24 @@ class AgentWithHealth(Agent):
 
 class Carcass(AgentWithHealth):
     # Rotting
-    health_regen = -2
+    health_regen = 0
     original: "Agents"
+    total_rotted: float = 0
     def __init__(self, *args, agent, **kwargs):
         self.original = agent
         super().__init__(*args, ":resources:images/enemies/wormGreen_dead.png", scale=OBJ_SIZE / 128, **kwargs)
+    def update(self):
+        self.total_rotted += self.remove_health(2 * DT)
+        super().update()
+    def on_death(self, reason: DeathReason) -> None:
+        if R.randint(0, 120) < self.total_rotted:
+            self.map.create_agent(self.left, self.top, Agents.Grass)
+        return super().on_death(reason)
     def death_reason(self) -> DeathReason:
-        return DeathReason.Eaten
+        if self.total_rotted <= 70:
+            return DeathReason.Eaten
+        else:
+            return DeathReason.Rotted
 
 class Grass(AgentWithHealth):
     health_regen = 5.0
