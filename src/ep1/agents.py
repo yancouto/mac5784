@@ -7,7 +7,7 @@ from random import Random
 from typing import Optional, List, Callable, Type, TypeVar, cast, Sequence
 import math
 
-R: Random = Random(2012)
+R: Random = Random(2013)
 
 T = TypeVar("T", bound="Agent")
 
@@ -31,10 +31,10 @@ class Agent(Sprite):
     
     def find_close(self, agent: Type[T], filter_fn: Optional[Callable[[T], bool]] = None) -> Optional[T]:
         all = list(filter(filter_fn, cast(List[T], self.map.agents(agent))))
-        distances = [arcade.get_distance_between_sprites(self, s) for s in all]
+        distances = [arcade.get_distance_between_sprites(self, s) ** 2 for s in all]
         if len(distances) > 0:
-            furthest = max(distances)
-            choice = R.choices(all, [furthest + 1 - d for d in distances])
+            mn = min(distances)
+            choice = R.choices(all, [mn / d for d in distances])
             if len(choice) > 0:
                 return choice[0]
         return None
@@ -72,6 +72,13 @@ class AgentWithHealth(Agent):
         self.health -= health_drop
         return health_drop
     
+    def add_health(self, amount: float) -> float:
+        if self.health <= 0:
+            return 0
+        health_gain = min(100 - self.health, amount)
+        self.health += health_gain
+        return health_gain
+    
     def death_reason(self) -> DeathReason:
         return DeathReason.Attack
     
@@ -86,7 +93,7 @@ class AgentWithHealth(Agent):
             #print("%s died of %s" % (self, reason.value))
             self.on_death(reason)
         else:
-            self.health = max(0, min(100, self.health + self.health_regen * DT))
+            self.add_health(self.health_regen * DT)
 
 class Carcass(AgentWithHealth):
     health_regen = 0
@@ -116,9 +123,10 @@ class Grass(AgentWithHealth):
         super().__init__(*args, ":resources:images/tiles/cactus.png", scale=OBJ_SIZE / 128, **kwargs)
 
 class AgentWithHunger(AgentWithHealth):
-    HUNGER_DAMAGE: float = 10.0
+    hunger_damage: float = 10.0
     hunger: float
-    hunger_buildup: float = 5.0
+    hunger_buildup: float = 4.0
+    satisfied_health_regen: float = 3.0
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -127,7 +135,9 @@ class AgentWithHunger(AgentWithHealth):
     def update(self):
         self.hunger = min(100, self.hunger + self.hunger_buildup * DT)
         if self.hunger >= 100:
-            self.health -= AgentWithHunger.HUNGER_DAMAGE * DT
+            self.health -= self.hunger_damage * DT
+        elif not self.is_hungry:
+            self.add_health(self.satisfied_health_regen * DT)
         super().update()
     
     def draw(self, **kwargs):
@@ -153,7 +163,10 @@ class AgentWithProcreation(AgentWithHunger):
     procreate_mean: float = 60.0
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.time_to_procreate = R.expovariate(1 / self.procreate_mean)
+        self.reset_procreation()
+    
+    def reset_procreation(self) -> None:
+        self.time_to_procreate = max(10, R.gauss(self.procreate_mean, self.procreate_mean / 2))
     
     def can_procreate(self) -> bool:
         return not self.is_hungry
@@ -166,7 +179,7 @@ class AgentWithProcreation(AgentWithHunger):
                 #print("%s procreated" % self)
                 self.map.create_agent(max(0, self.left - self.width), self.top, self.__class__, health = 20)
                 self.hunger += 30
-                self.time_to_procreate = R.expovariate(1 / self.procreate_mean)
+                self.reset_procreation()
 
 class Herbivore(AgentWithProcreation):
     HEALTH_TO_HUNGER: float = 1.2
@@ -196,11 +209,27 @@ class Herbivore(AgentWithProcreation):
         self.idle_speed: float = R.uniform(0.3, 1.2)
         self.chase_speed: float = R.uniform(0.3, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
+        # Less than carnivore
+        self.attack_damage: float = R.uniform(5, 15)
     
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
         init_health = 70 if reason == DeathReason.Hunger else 100
         self.map.create_agent(self.left, self.top, Carcass, original=self.__class__, health = init_health)
+    
+    def chase_food(self) -> bool:
+        grass = self.find_close(Grass)
+        if grass is not None:
+            self.state = Herbivore.ChasingFood(grass)
+        return grass is not None
+    
+    # This might also attack carnivores attacking other prey, which is kinda nice for group behaviour.
+    def try_attack_carnivore(self) -> bool:
+        carnivore = self.find_close(Carnivore, lambda c: isinstance(c.state, Carnivore.AttackCooldown) and (arcade.get_distance_between_sprites(self, c) < 100 or self.collides_with_sprite(c)))
+        if carnivore is not None:
+            carnivore.remove_health(self.attack_damage)
+            self.state = Herbivore.AttackCooldown(1.2, carnivore)
+        return carnivore is not None
     
     def update(self):
         super().update()
@@ -208,18 +237,25 @@ class Herbivore(AgentWithProcreation):
         match self.state:
             case Herbivore.Idle(_) as state:
                 state.time_to_move -= DT
-                # TODO: If close to carnivore on cooldown, attack it.
-                if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
-                    grass = self.find_close(Grass)
-                    if isinstance(grass, Grass):
-                        self.state = Herbivore.ChasingFood(grass)
-                        return
+                if self.hunger >= 60 and self.chase_food():
+                    return
+                if self.try_attack_carnivore():
+                    return
+                if (self.hunger >= 40 and state.time_to_move <= 0) and self.chase_food():
+                    return
                 if state.time_to_move <= 0:
                     if R.random() < 0.3:
                         self.velocity = [0, 0]
                     else:
                         self.velocity = arcade.rotate_point(self.idle_speed, 0, 0, 0, R.uniform(0, 360))
                     self.state = Herbivore.Idle.random(8)
+            case Herbivore.AttackCooldown(_, _) as state:
+                state.time_to_wait -= DT
+                if state.time_to_wait <= 0:
+                    if self.try_attack_carnivore():
+                        return
+                    else:
+                        self.state = Herbivore.Idle(0)
             case Herbivore.ChasingFood(target):
                 if target.is_dead:
                     self.state = Herbivore.Idle.random(1)
@@ -244,10 +280,10 @@ class Herbivore(AgentWithProcreation):
                 raise ValueError("Unknown state")
     
 class Carnivore(AgentWithProcreation):
-    HEALTH_TO_HUNGER: float = 1.4
+    health_to_hunger: float = 1.6
     health_regen = 1.0
     procreate_mean = 120.0
-    hunger_buildup = 10.0
+    hunger_buildup = 5.0
     class CState: pass
     @dataclass
     class Idle(CState):
@@ -286,13 +322,13 @@ class Carnivore(AgentWithProcreation):
             match self.state:
                 case Carnivore.Idle(_) as state:
                     state.time_to_move -= DT
-                    if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
+                    if self.hunger >= 50 or (self.hunger >= 30 and state.time_to_move <= 0) or self.hunger - self.health >= 20:
                         carcass = self.find_close(Carcass)
-                        if isinstance(carcass, Carcass):
+                        if carcass is not None:
                             self.state = Carnivore.ChasingPrey(carcass)
                             return
                         herbivore = self.find_close(Herbivore)
-                        if isinstance(herbivore, Herbivore):
+                        if herbivore is not None:
                             self.state = Carnivore.ChasingPrey(herbivore)
                             return
                     if state.time_to_move <= 0:
@@ -330,7 +366,7 @@ class Carnivore(AgentWithProcreation):
                         self.state = Carnivore.Idle.random(1)
                     else:
                         eaten = target.remove_health(self.eat_speed * DT)
-                        self.remove_hunger(eaten * Carnivore.HEALTH_TO_HUNGER)
+                        self.remove_hunger(eaten * self.health_to_hunger)
                         if self.hunger <= 0:
                             self.state = Carnivore.Idle.random(1)
                 case _:
@@ -351,7 +387,7 @@ class Map(SpriteSolidColor):
         for _ in range(30):
             left = R.uniform(self.left, self.right - OBJ_SIZE)
             top = R.uniform(self.bottom + OBJ_SIZE, self.top)
-            self.create_agent(left, top, R.choices([Grass, Herbivore, Carnivore], [6, 3, 2])[0])
+            self.create_agent(left, top, R.choices([Grass, Herbivore, Carnivore], [8, 3, 1])[0])
     
     def agents(self, agent: Type[Agent]) -> Sequence[Agent]:
         return cast(List[Agent], self.scene.get_sprite_list(agent.__name__).sprite_list)
@@ -377,6 +413,6 @@ class Map(SpriteSolidColor):
     
     def create_agent(self, x: float, y: float, agent: Type[Agent], **kwargs) -> None:
         if len(self.agents(agent)) > 1000:
-            print("TOO MANY AGENTS")
+            print("TOO MANY %s AGENTS" % agent.__name__)
             return
         self.scene.add_sprite(agent.__name__, agent(self, x, y, type=agent, **kwargs))
