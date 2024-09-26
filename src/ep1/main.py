@@ -2,15 +2,15 @@ import arcade, arcade.color
 from arcade import Window, key, Text
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT
 import agents
-from agents import Map, Agents
+from agents import Map, Grass, Herbivore, Carnivore, Agent
 from historical_data import HistoricalData
-from typing import List
+from typing import List, Type
 
 SPEED_MULTIPLIER: int = 1
 
 class Game(Window):
     map = Map()
-    cur_agent: Agents = Agents.Grass
+    cur_agent: Type[Agent] = Grass
     cur_agent_text: Text
     grass_count: Text
     herbivore_count: Text
@@ -47,20 +47,18 @@ class Game(Window):
         self.update_counts()
     
     def update_agent_text(self):
-        self.cur_agent_text.text = f"Click to create: {self.cur_agent.name} (use G, H, C to change)"
+        self.cur_agent_text.text = f"Click to create: {self.cur_agent.__name__} (use G, H, C to change)"
     
     def get_data(self) -> List[float]:
         return [
-            len(self.map.scene[Agents.Grass.name]),
-            len(self.map.scene[Agents.Herbivore.name]),
-            len(self.map.scene[Agents.Carnivore.name])
+            len(self.map.agents(Grass)),
+            len(self.map.agents(Herbivore)),
+            len(self.map.agents(Carnivore))
         ]
         
     
     def update_counts(self):
-        grass_count = len(self.map.scene[Agents.Grass.name])
-        herbivore_count = len(self.map.scene[Agents.Herbivore.name])
-        carnivore_count = len(self.map.scene[Agents.Carnivore.name])
+        [grass_count, herbivore_count, carnivore_count] = self.get_data()
         self.grass_count.text = f"Grass total: {grass_count}"
         self.herbivore_count.text = f"Herbivores total: {herbivore_count}"
         self.carnivore_count.text = f"Carnivores total: {carnivore_count}"
@@ -69,11 +67,11 @@ class Game(Window):
     def on_key_press(self, symbol: int, modifiers: int):
         global SPEED_MULTIPLIER
         if symbol == key.H:
-            self.cur_agent = Agents.Herbivore
+            self.cur_agent = Herbivore
         elif symbol == key.G:
-            self.cur_agent = Agents.Grass
+            self.cur_agent = Grass
         elif symbol == key.C:
-            self.cur_agent = Agents.Carnivore
+            self.cur_agent = Carnivore
         elif symbol == key.RIGHT:
             SPEED_MULTIPLIER = SPEED_MULTIPLIER + 1
         elif symbol == key.LEFT:

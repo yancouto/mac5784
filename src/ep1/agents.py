@@ -4,16 +4,15 @@ from constants import OBJ_SIZE, DT, SCREEN_HEIGHT, SCREEN_WIDTH
 from dataclasses import dataclass
 from enum import Enum
 from random import Random
-from typing import Optional, List
-from common import Updatable
+from typing import Optional, List, Callable, Type, TypeVar, cast, Sequence
 import math
 
 R: Random = Random(2012)
 
+T = TypeVar("T", bound="Agent")
+
 class Agent(Sprite):
     map: "Map"
-    
-    type: "Agents"
     
     def __init__(self, map, left, top, *args, type, **kwargs):
         super().__init__(*args, **kwargs, hit_box_algorithm="Simple")
@@ -30,9 +29,8 @@ class Agent(Sprite):
     def hitbox_height(self) -> float:
         return self.top - self.bottom
     
-    def find_close(self, agent: "Agents", max_dist: float = math.inf) -> Optional[Sprite]:
-        # TODO: limit max distance
-        all = self.map.scene.get_sprite_list(agent.name).sprite_list
+    def find_close(self, agent: Type[T], filter_fn: Optional[Callable[[T], bool]] = None) -> Optional[T]:
+        all = list(filter(filter_fn, cast(List[T], self.map.agents(agent))))
         distances = [arcade.get_distance_between_sprites(self, s) for s in all]
         if len(distances) > 0:
             furthest = max(distances)
@@ -93,10 +91,10 @@ class AgentWithHealth(Agent):
 class Carcass(AgentWithHealth):
     health_regen = 0
     rot_speed: float
-    original: "Agents"
+    original: Type[Agent]
     total_rotted: float = 0
-    def __init__(self, *args, agent, **kwargs):
-        self.original = agent
+    def __init__(self, *args, original: Type[Agent], **kwargs):
+        self.original = original
         self.rot_speed = R.uniform(1, 5)
         super().__init__(*args, ":resources:images/enemies/wormGreen_dead.png", scale=OBJ_SIZE / 128, **kwargs)
     def update(self):
@@ -104,7 +102,7 @@ class Carcass(AgentWithHealth):
         super().update()
     def on_death(self, reason: DeathReason) -> None:
         if R.randint(0, 200) < self.total_rotted:
-            self.map.create_agent(self.left, self.top, Agents.Grass, health=R.uniform(10, 30))
+            self.map.create_agent(self.left, self.top, Grass, health=R.uniform(10, 30))
         return super().on_death(reason)
     def death_reason(self) -> DeathReason:
         if self.total_rotted <= 70:
@@ -166,7 +164,7 @@ class AgentWithProcreation(AgentWithHunger):
             self.time_to_procreate -= DT
             if self.time_to_procreate <= 0:
                 #print("%s procreated" % self)
-                self.map.create_agent(max(0, self.left - self.width), self.top, self.type, health = 20)
+                self.map.create_agent(max(0, self.left - self.width), self.top, self.__class__, health = 20)
                 self.hunger += 30
                 self.time_to_procreate = R.expovariate(1 / self.procreate_mean)
 
@@ -202,7 +200,7 @@ class Herbivore(AgentWithProcreation):
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
         init_health = 70 if reason == DeathReason.Hunger else 100
-        self.map.create_agent(self.left, self.top, Agents.Carcass, agent=Agents.Herbivore, health = init_health)
+        self.map.create_agent(self.left, self.top, Carcass, original=self.__class__, health = init_health)
     
     def update(self):
         super().update()
@@ -212,7 +210,7 @@ class Herbivore(AgentWithProcreation):
                 state.time_to_move -= DT
                 # TODO: If close to carnivore on cooldown, attack it.
                 if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
-                    grass = self.find_close(Agents.Grass)
+                    grass = self.find_close(Grass)
                     if isinstance(grass, Grass):
                         self.state = Herbivore.ChasingFood(grass)
                         return
@@ -280,7 +278,7 @@ class Carnivore(AgentWithProcreation):
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
         init_health = 70 if reason == DeathReason.Hunger else 100
-        self.map.create_agent(self.left, self.top, Agents.Carcass, agent=Agents.Carnivore, health = init_health)
+        self.map.create_agent(self.left, self.top, Carcass, original=self.__class__, health = init_health)
     
     def update(self):
         super().update()
@@ -289,11 +287,11 @@ class Carnivore(AgentWithProcreation):
                 case Carnivore.Idle(_) as state:
                     state.time_to_move -= DT
                     if self.hunger >= 70 or (self.hunger >= 50 and state.time_to_move <= 0):
-                        carcass = self.find_close(Agents.Carcass)
+                        carcass = self.find_close(Carcass)
                         if isinstance(carcass, Carcass):
                             self.state = Carnivore.ChasingPrey(carcass)
                             return
-                        herbivore = self.find_close(Agents.Herbivore)
+                        herbivore = self.find_close(Herbivore)
                         if isinstance(herbivore, Herbivore):
                             self.state = Carnivore.ChasingPrey(herbivore)
                             return
@@ -340,11 +338,7 @@ class Carnivore(AgentWithProcreation):
             # The default is to end unless we use continue
             return
 
-class Agents(Enum):
-    Grass = Grass
-    Herbivore = Herbivore
-    Carcass = Carcass
-    Carnivore = Carnivore
+ALL_AGENTS = [Grass, Herbivore, Carcass, Carnivore]
 
 class Map(SpriteSolidColor):
     scene = arcade.Scene()
@@ -352,12 +346,15 @@ class Map(SpriteSolidColor):
         super().__init__(800, 800, (0, 0, 0))
         self.center_x = SCREEN_WIDTH / 2
         self.center_y = SCREEN_HEIGHT / 2
-        for agent in Agents:
-            self.scene.add_sprite_list(agent.name)
+        for agent in ALL_AGENTS:
+            self.scene.add_sprite_list(agent.__name__)
         for _ in range(30):
             left = R.uniform(self.left, self.right - OBJ_SIZE)
             top = R.uniform(self.bottom + OBJ_SIZE, self.top)
-            self.create_agent(left, top, R.choices([Agents.Grass, Agents.Herbivore, Agents.Carnivore], [6, 3, 2])[0])
+            self.create_agent(left, top, R.choices([Grass, Herbivore, Carnivore], [6, 3, 2])[0])
+    
+    def agents(self, agent: Type[Agent]) -> Sequence[Agent]:
+        return cast(List[Agent], self.scene.get_sprite_list(agent.__name__).sprite_list)
 
     def update(self):
         for list in self.scene.sprite_lists:
@@ -378,8 +375,8 @@ class Map(SpriteSolidColor):
             for obj in obj.sprite_list:
                 obj.draw()
     
-    def create_agent(self, x: float, y: float, agent_type: Agents, **kwargs) -> None:
-        if len(self.scene.get_sprite_list(agent_type.name)) > 1000:
+    def create_agent(self, x: float, y: float, agent: Type[Agent], **kwargs) -> None:
+        if len(self.agents(agent)) > 1000:
             print("TOO MANY AGENTS")
             return
-        self.scene.add_sprite(agent_type.name, agent_type.value(self, x, y, type=agent_type, **kwargs))
+        self.scene.add_sprite(agent.__name__, agent(self, x, y, type=agent, **kwargs))
