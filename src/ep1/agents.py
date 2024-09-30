@@ -120,7 +120,7 @@ class Carcass(AgentWithHealth):
 class Grass(AgentWithHealth):
     health_regen = 5.0
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, ":resources:images/tiles/cactus.png", scale=OBJ_SIZE / 128, **kwargs)
+        super().__init__(*args, ":resources:images/tiles/bush.png", scale=OBJ_SIZE / 128, **kwargs)
 
 class AgentWithHunger(AgentWithHealth):
     hunger_damage: float = 10.0
@@ -304,7 +304,7 @@ class Carnivore(AgentWithProcreation):
     state: CState
     
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, ":resources:images/enemies/frog.png", scale=OBJ_SIZE / 128, **kwargs)
+        super().__init__(*args, ":resources:images/enemies/slimeBlue.png", scale=OBJ_SIZE / 128, **kwargs)
         self.state = Carnivore.Idle.random(3)
         self.idle_speed: float = R.uniform(0.3, 1.2)
         self.chase_speed: float = R.uniform(0.3, 2.0)

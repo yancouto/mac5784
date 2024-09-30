@@ -7,7 +7,7 @@ from enum import Enum
 from dataclasses import dataclass
 
 COLLECT_INTERVAL: float = 6.0
-COLORS = [arcade.color.GREEN, arcade.color.BLUE, arcade.color.RED]
+COLORS = [arcade.color.GREEN, arcade.color.PINK, arcade.color.BLUE]
 DX = 10
 
 class GraphMode(Enum):

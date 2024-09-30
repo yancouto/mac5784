@@ -1,4 +1,4 @@
-# Tarefa 1
+# Tarefa 2
 
 ## Introdução
 
@@ -6,37 +6,13 @@ O jogo é um simulador de ecossistema, onde seres vivos são agentes independent
 
 O jogo se passa em um mapa retangular, cada agente é um sprite no mapa, e pode se mover pelo mapa, e interagir com outros agentes que estejam próximos dele. O jogador clica com o mouse para criar agentes, e pode usar as setas para mudar a velocidade da simulação.
 
-## Agentes
-Cada tipo de agente é implementado como uma máquina de estados, o estado atual representa o que o agente "está fazendo" (ex. comendo), e há uma mudança de estado quando ao analisar o ambiente o agente decide fazer outra coisa (ex. se a comida acabar, buscar mais, ou se estiver saciado, parar de comer).
+## Agentes estratégicos e equilíbrios
 
-Em comum, todos agentes tem uma quantidade de vida (0-100), e quando essa vida chega a 0, o agente morre, e desaparece.
+De acordo com a aula de agentes estratégicos, foi interessante explorar agentes terem consciência da existência dos outros agentes. Previamente, carnívoros já perseguiam e comiam herbívoros, mas estes simplesmente ignoravam a existência dos carnívoros. Nessa entrega, os herbívoros sabem da existência de carnívoros e atacam os carnívoros de volta quando atacados. Dessa forma, fica mais dificil para um carnívoro atacar um grupo de herbívoros próximos, o que faz estas "comunidades" ficarem mais fortes, uma interação interessante.
 
-Temos 4 tipos de agentes:
+Como o jogo é sobre atingir um equilíbrio, também adicionei um gráfico que mostra a porcentagem de plantas, herbívoros e carnívoros. Além disso, o gráfico mostra (com linhas verticais) todos os momentos que o jogador artificialmente adicionou algum agente ao mapa. Isso permite ao jogador analisar como suas mudanças afetam o equilíbrio do ecossistema.
 
-### Planta (Grass)
-Essa é uma "planta" genérica. Ela apenas fica parada, e sua vida se regenera automaticamente, simulando que ela está fazendo fotossíntese e o sol é abundante.
-
-### Herbívoro (Herbivore)
-Um herbivoro, que come plantas. Ele tem uma fome que cresce com o tempo, diminui se ele come, e causa dano a ele se está muito grande. Sua vida se regenera se ele está alimentado, mas vagarosamente.
-
-Quando tem pouca fome, ele anda pelo mapa aleatoriamente, e pode se reproduzir, criando uma cópia de si mesmo: não é necessário interação com outros agentes, estamos considerando que cada agente "Herbívoro" é na verdade uma pequena "tribo" de animais.
-
-Quando ele tem muita fome, ele busca uma Planta próxima e anda em direção a ela, e começa a comê-la, tirando vida da planta e diminuindo sua fome.
-
-### Carnívoro (Carnivore)
-Um carnívoro, que come outros animais. Tem fome que funciona como no Herbívoro.
-
-O Carnívoro funciona de forma similar ao Herbívoro, mas não se reproduz, e só pode se alimentar de carcaças. Quando tem fome, busca um herbívoro próximo e tenta o ataca, tentando matá-lo. Se algum animal morre, seja por ataque ou por fome, ele vira uma Carcaça.
-
-### Carcaça (Carcass)
-Corpo de um animal morto. Sua vida diminui com o tempo, ou ainda mais rápido se um carnívoro está se alimentando dele.
-
-## Conclusão e Futuro
-O jogo já está bem funcional, e é um divertido playground para testar agentes. Porém, ainda é fácil conseguir um equilibrio colocando apenas plantas, e dificil colocando os outros agentes. Ainda falta isso virar um "ciclo", onde as plantas dependem dos carnívoros (ou herbívoros), isso será implementado em uma tarefa futura. Talvez as plantas se alimentem de carcaças, ou de alguma forma dependam das mortes dos animais para viver, de forma que se houverem apenas plantas, elas acabam morrendo. Mas ainda não é claro como fazer isso, e como deixar claro pro jogador.
-
-Reprodução é um tópico complicado, pode se tornar muito complicado e eu não quero deixar o jogo super complicado. Atualmente, apenas herbívoros se reproduzem. Carnívoros não se reproduzem por que o mapa é pequeno e é muito raro eles morrerem de fome, então adicionando reprodução no jogo como está, eles provavelmente acabariam matando todos os herbívoros sempre. Pode ser bom implementar reprodução para carnívoros e plantas no futuro também, mas tem que ser feito com cuidado.
-
-E as possibilidades são bem grandes, é fácil adicionar mais tipos de agentes, tipos diferentes de herbívoros/carnívoros, onívoros, outras espécies, ou deixar o comportamento das atuais mais complexos (sede, sexo, tribos, etc etc). Mas não quero adicionar mais agentes ou comportamentos só por que é possível, quero adicionar apenas se estes explorarem novas técnicas de IA relacionadas à disciplina.
+Além disso, outras mudanças foram feitas. Além de balanceamentos entre a força, velocidade e outros parâmetros dos agentes, agora herbívoros e carnívoros podem se reproduzir, e além disso quando um animal morre e decompõe, tem a chance de uma planta surgir em seu lugar, fazendo a ecologia ser realmente um ciclo onde cada ser depende do outro.
 
 ## Como jogar
 Para rodar, se já tiver Python e Python Arcade instalado, basta rodar:
