@@ -16,7 +16,7 @@ Além disso, outras mudanças foram feitas. Além de balanceamentos entre a for�
 
 ## Como jogar
 Para rodar, se já tiver Python e Python Arcade instalado, basta rodar:
-- `python src/ep1/main.py`
+- `python src/main.py`
 
 Para instalar Python Arcade, faça:
 - `pip install arcade`
