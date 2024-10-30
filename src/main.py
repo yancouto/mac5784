@@ -17,6 +17,7 @@ class Game(Window):
     carnivore_count: Text
     simulation_speed: Text
     graph: HistoricalData
+    previous_pause_val: int = 0
 
     def __init__(self):
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "EP1") # type: ignore
@@ -62,7 +63,7 @@ class Game(Window):
         self.grass_count.text = f"Grass total: {grass_count}"
         self.herbivore_count.text = f"Herbivores total: {herbivore_count}"
         self.carnivore_count.text = f"Carnivores total: {carnivore_count}"
-        self.simulation_speed.text = f"Simulation speed: {SPEED_MULTIPLIER}x (use arrows to change)"
+        self.simulation_speed.text = f"Simulation speed: {SPEED_MULTIPLIER}x (use arrows to change, P to pause/resume)"
     
     def on_key_press(self, symbol: int, modifiers: int):
         global SPEED_MULTIPLIER
@@ -76,6 +77,12 @@ class Game(Window):
             SPEED_MULTIPLIER = SPEED_MULTIPLIER + 1
         elif symbol == key.LEFT:
             SPEED_MULTIPLIER = max(0, SPEED_MULTIPLIER - 1)
+        elif symbol == key.P:
+            if SPEED_MULTIPLIER == 0:
+                SPEED_MULTIPLIER = self.previous_pause_val
+            else:
+                self.previous_pause_val = SPEED_MULTIPLIER
+                SPEED_MULTIPLIER = 0
         else:
             return
         self.update_agent_text()
