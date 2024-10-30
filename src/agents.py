@@ -282,7 +282,7 @@ class Herbivore(AgentWithProcreation):
 class Carnivore(AgentWithProcreation):
     health_to_hunger: float = 1.6
     health_regen = 1.0
-    procreate_mean = 120.0
+    procreate_mean = 100.0
     hunger_buildup = 5.0
     class CState: pass
     @dataclass
@@ -384,10 +384,10 @@ class Map(SpriteSolidColor):
         self.center_y = SCREEN_HEIGHT / 2
         for agent in ALL_AGENTS:
             self.scene.add_sprite_list(agent.__name__)
-        for _ in range(30):
+        for _ in range(50):
             left = R.uniform(self.left, self.right - OBJ_SIZE)
             top = R.uniform(self.bottom + OBJ_SIZE, self.top)
-            self.create_agent(left, top, R.choices([Grass, Herbivore, Carnivore], [8, 3, 1])[0])
+            self.create_agent(left, top, R.choices([Grass, Herbivore, Carnivore], [11, 3, 2])[0])
     
     def agents(self, agent: Type[Agent]) -> Sequence[Agent]:
         return cast(List[Agent], self.scene.get_sprite_list(agent.__name__).sprite_list)
