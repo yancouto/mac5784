@@ -1,15 +1,16 @@
 import arcade, arcade.color
-from arcade import Window, key, Text
+from arcade import Window, key, Text, Camera
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT
 import agents
 from agents import Map, Grass, Herbivore, Carnivore, Agent
 from historical_data import HistoricalData
 from typing import List, Type
+from arcade.camera import Vec2
 
 SPEED_MULTIPLIER: int = 1
 
 class Game(Window):
-    map = Map()
+    map: Map
     cur_agent: Type[Agent] = Grass
     cur_agent_text: Text
     grass_count: Text
@@ -18,6 +19,8 @@ class Game(Window):
     simulation_speed: Text
     graph: HistoricalData
     previous_pause_val: int = 0
+    gui_camera: Camera
+    map_camera: Camera
 
     def __init__(self):
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Equilibrium") # type: ignore
@@ -27,19 +30,26 @@ class Game(Window):
         self.grass_count = Text("", 10, SCREEN_HEIGHT - 60, arcade.color.BLACK, 12)
         self.herbivore_count = Text("", 10, SCREEN_HEIGHT - 80, arcade.color.BLACK, 12)
         self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 100, arcade.color.BLACK, 12)
+        map_size = 1000
+        self.map = Map(map_size)
+        self.map_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.map_camera.scale = map_size / 800.0
+        self.gui_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.graph = HistoricalData((SCREEN_WIDTH - 450, SCREEN_HEIGHT / 2), (200, 200), self.get_data)
         self.update_agent_text()
         self.update_counts()
-        self.graph = HistoricalData((SCREEN_WIDTH - 450, SCREEN_HEIGHT / 2), (200, 200), self.get_data)
 
     def on_draw(self):
         arcade.start_render()
+        self.gui_camera.use()
         self.simulation_speed.draw()
         self.cur_agent_text.draw()
         self.grass_count.draw()
         self.herbivore_count.draw()
         self.carnivore_count.draw()
-        self.map.draw()
         self.graph.draw()
+        self.map_camera.use()
+        self.map.draw()
     
     def on_update(self, delta_time: float):
         for _ in range(SPEED_MULTIPLIER):

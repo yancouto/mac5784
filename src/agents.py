@@ -378,8 +378,8 @@ ALL_AGENTS = [Grass, Herbivore, Carcass, Carnivore]
 
 class Map(SpriteSolidColor):
     scene = arcade.Scene()
-    def __init__(self) -> None:
-        super().__init__(800, 800, (0, 0, 0))
+    def __init__(self, size: int) -> None:
+        super().__init__(size, size, (0, 0, 0))
         self.center_x = SCREEN_WIDTH / 2
         self.center_y = SCREEN_HEIGHT / 2
         for agent in ALL_AGENTS:
