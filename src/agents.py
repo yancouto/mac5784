@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from enum import Enum
 from random import Random
 from typing import Optional, List, Callable, Type, TypeVar, cast, Sequence
-import math
+from arcade.arcade_types import Vector
+from common import len2, max_norm
 
 R: Random = Random(2013)
 
@@ -13,6 +14,7 @@ T = TypeVar("T", bound="Agent")
 
 class Agent(Sprite):
     map: "Map"
+    max_speed: float = 100.0
     
     def __init__(self, map, left, top, *args, type, **kwargs):
         super().__init__(*args, **kwargs, hit_box_algorithm="Simple")
@@ -20,6 +22,8 @@ class Agent(Sprite):
         self.top = top
         self.map = map
         self.type = type
+        self.base_force: Vector = (0, 0)
+        self.external_force: Vector = [0, 0]
     
     @property
     def hitbox_width(self) -> float:
@@ -28,6 +32,12 @@ class Agent(Sprite):
     @property
     def hitbox_height(self) -> float:
         return self.top - self.bottom
+    
+    def update(self) -> None:
+        self.velocity[0] += (self.base_force[0] + self.external_force[0]) * DT
+        self.velocity[1] += (self.base_force[1] + self.external_force[1]) * DT
+        max_norm(self.velocity, self.max_speed)
+        super().update()
     
     def find_close(self, agent: Type[T], filter_fn: Optional[Callable[[T], bool]] = None) -> Optional[T]:
         all = list(filter(filter_fn, cast(List[T], self.map.agents(agent))))
@@ -305,7 +315,7 @@ class Carnivore(AgentWithProcreation):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, ":resources:images/enemies/slimeBlue.png", scale=OBJ_SIZE / 128, **kwargs)
-        self.state = Carnivore.Idle.random(3)
+        self.state = Carnivore.Idle(0)
         self.idle_speed: float = R.uniform(0.3, 1.2)
         self.chase_speed: float = R.uniform(0.3, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
@@ -315,6 +325,23 @@ class Carnivore(AgentWithProcreation):
         super().on_death(reason)
         init_health = 70 if reason == DeathReason.Hunger else 100
         self.map.create_agent(self.left, self.top, Carcass, original=self.__class__, health = init_health)
+    
+    def calculate_repel_force(self):
+        self.max_speed = self.idle_speed
+        self.external_force = [0, 0]
+        for c in self.map.agents(Carnivore):
+            if c is self:
+                continue
+            vec = [self.center_x - c.center_x, self.center_y - c.center_y]
+            norm2 = len2(vec)
+            max_dist = 300
+            if norm2 <= max_dist * max_dist:
+                norm = norm2 ** 0.5
+                mult = (((max_dist - norm) / max_dist) ** 1.2) * self.idle_speed * 5
+                self.external_force[0] += vec[0] / norm * mult
+                self.external_force[1] += vec[1] / norm * mult
+        max_norm(self.external_force, self.idle_speed)
+        #print("Base force: %.1f, external force: %.1f" % (len2(self.base_force) ** 0.5, len2(self.external_force) ** 0.5))
     
     def update(self):
         super().update()
@@ -332,11 +359,12 @@ class Carnivore(AgentWithProcreation):
                             self.state = Carnivore.ChasingPrey(herbivore)
                             return
                     if state.time_to_move <= 0:
-                        if R.random() < 0.3:
-                            self.velocity = [0, 0]
-                        else:
-                            self.velocity = arcade.rotate_point(self.idle_speed, 0, 0, 0, R.uniform(0, 360))
+                        dir = arcade.rotate_point(1, 0, 0, 0, R.uniform(0, 360))
+                        spd = self.idle_speed
+                        self.base_force = (dir[0] * spd / 2, dir[1] * spd / 2)
+                        self.velocity = [dir[0] * spd, dir[1] * spd]
                         self.state = Carnivore.Idle.random(8)
+                    self.calculate_repel_force()
                 case Carnivore.ChasingPrey(target):
                     if target.is_dead:
                         self.state = Carnivore.Idle(0)
@@ -351,8 +379,10 @@ class Carnivore(AgentWithProcreation):
                         else:
                             raise ValueError("Unknown target type")
                     else:
+                        self.max_speed = self.chase_speed
                         self.angle = 0
                         self.velocity = [0, 0]
+                        self.force = [0, 0]
                         self.face_point(target.position)
                         self.angle += 90
                         self.forward(self.chase_speed)
@@ -395,15 +425,20 @@ class Map(SpriteSolidColor):
     def update(self):
         for list in self.scene.sprite_lists:
             for obj in list.sprite_list:
+                obj = cast(Agent, obj)
                 obj.update()
                 if obj.left < self.left:
                     obj.change_x = abs(obj.change_x)
+                    obj.base_force = (abs(obj.base_force[0]), obj.base_force[1])
                 elif obj.right > self.right:
                     obj.change_x = -abs(obj.change_x)
+                    obj.base_force = (-abs(obj.base_force[0]), obj.base_force[1])
                 elif obj.top > self.top:
                     obj.change_y = -abs(obj.change_y)
+                    obj.base_force = (obj.base_force[0], -abs(obj.base_force[1]))
                 elif obj.bottom < self.bottom:
                     obj.change_y = abs(obj.change_y)
+                    obj.base_force = (obj.base_force[0], abs(obj.base_force[1]))
 
     def draw(self, **kwargs) -> None:
         super().draw(**kwargs)
