@@ -31,18 +31,23 @@ class Game(Window):
             10,
             SCREEN_HEIGHT - 60,
             arcade.color.BLACK,
-            12,
         )
-        self.grass_count = Text("", 10, SCREEN_HEIGHT - 80, arcade.color.BLACK, 12)
-        self.herbivore_count = Text("", 10, SCREEN_HEIGHT - 100, arcade.color.BLACK, 12)
-        self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 120, arcade.color.BLACK, 12)
+        self.right_click_text = Text(
+            "Right click on an agent to destroy it.",
+            10,
+            SCREEN_HEIGHT - 80,
+            arcade.color.BLACK,
+        )
+        self.grass_count = Text("", 10, SCREEN_HEIGHT - 120, arcade.color.BLACK, 12)
+        self.herbivore_count = Text("", 10, SCREEN_HEIGHT - 140, arcade.color.BLACK, 12)
+        self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 160, arcade.color.BLACK, 12)
         map_size = 1000
         self.map = Map(map_size)
         self.map_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.map_camera.scale = map_size / 800.0
         self.gui_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         graph_bl = (SCREEN_WIDTH - 450, SCREEN_HEIGHT - 300)
-        self.graph = HistoricalData(graph_bl, (200, 200), self.get_data)
+        self.graph = HistoricalData(graph_bl, (400, 200), self.get_data)
         self.time_no_modif_text = Text(
             "", graph_bl[0], graph_bl[1] - 30, arcade.color.BLACK, 13
         )
@@ -60,6 +65,7 @@ class Game(Window):
             self.simulation_speed,
             self.cur_agent_text,
             self.tab_text,
+            self.right_click_text,
             self.grass_count,
             self.herbivore_count,
             self.carnivore_count,
@@ -167,6 +173,17 @@ class Game(Window):
                     last_log.time_log = self.logs.cur_time
                 else:
                     self.logs.log(f"Created 1 {name}")
+        elif button == arcade.MOUSE_BUTTON_RIGHT and self.map.collides_with_point(
+            (mx, my)
+        ):
+            to_kill = self.map.find_at_point(mx, my)
+            for agent in to_kill:
+                agent.kill()
+                self.logs.log(f"Manually killed {agent.__class__.__name__}")
+                self.score = max(0, self.score - 10)
+            if len(to_kill) > 0:
+                self.graph.add_vertical_mark()
+                self.time_no_modif = 0
 
 
 def main():

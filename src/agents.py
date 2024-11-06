@@ -564,7 +564,7 @@ class Map(SpriteSolidColor):
         self.center_x = SCREEN_WIDTH / 2
         self.center_y = SCREEN_HEIGHT / 2
         for agent in ALL_AGENTS:
-            self.scene.add_sprite_list(agent.__name__)
+            self.scene.add_sprite_list(agent.__name__, True)
         for _ in range(50):
             left = R.uniform(self.left, self.right - OBJ_SIZE)
             top = R.uniform(self.bottom + OBJ_SIZE, self.top)
@@ -572,8 +572,11 @@ class Map(SpriteSolidColor):
                 left, top, R.choices([Grass, Herbivore, Carnivore], [11, 3, 2])[0]
             )
 
+    def sprite_list(self, agent: Type[Agent]) -> arcade.SpriteList:
+        return self.scene.get_sprite_list(agent.__name__)
+
     def agents(self, agent: Type[Agent]) -> Sequence[Agent]:
-        return cast(List[Agent], self.scene.get_sprite_list(agent.__name__).sprite_list)
+        return cast(List[Agent], self.sprite_list(agent).sprite_list)
 
     def update(self):
         for list in self.scene.sprite_lists:
@@ -609,3 +612,9 @@ class Map(SpriteSolidColor):
             return False
         self.scene.add_sprite(agent.__name__, agent(self, x, y, type=agent, **kwargs))
         return True
+
+    def find_at_point(self, x: float, y: float) -> Sequence[Agent]:
+        found = []
+        for agent in ALL_AGENTS:
+            found.extend(arcade.get_sprites_at_point((x, y), self.sprite_list(agent)))
+        return found
