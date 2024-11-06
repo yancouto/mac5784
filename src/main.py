@@ -18,6 +18,7 @@ class Game(Window):
     map_camera: Camera
     score: float = 0
     time_no_modif: float = 0
+    prev_count: List[float] = [0, 0, 0]
 
     def __init__(self):
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Equilibrium") # type: ignore
@@ -69,13 +70,18 @@ class Game(Window):
         
     
     def update_counts(self):
-        [grass_count, herbivore_count, carnivore_count] = self.get_data()
+        new_count = self.get_data()
+        [grass_count, herbivore_count, carnivore_count] = new_count
         self.grass_count.text = f"Grass total: {grass_count}"
         self.herbivore_count.text = f"Herbivores total: {herbivore_count}"
         self.carnivore_count.text = f"Carnivores total: {carnivore_count}"
         self.simulation_speed.text = f"Simulation speed: {SPEED_MULTIPLIER}x (use arrows to change, P to pause/resume)"
         self.time_no_modif_text.text = f"Time without modification: {self.time_no_modif:.1f}s"
         self.score_text.text = f"Score: {self.score:.0f}"
+        for i, name in enumerate(["Grass", "Herbivores", "Carnivores"]):
+            if new_count[i] == 0 and self.prev_count[i] != 0:
+                self.logs.log(f"Extinction of {name}")
+        self.prev_count = new_count
     
     def on_key_press(self, symbol: int, modifiers: int):
         global SPEED_MULTIPLIER
