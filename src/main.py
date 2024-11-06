@@ -9,6 +9,7 @@ from logs import Logs
 
 SPEED_MULTIPLIER: int = 1
 
+
 class Game(Window):
     map: Map
     cur_agent: Type[Agent] = Grass
@@ -21,7 +22,7 @@ class Game(Window):
     prev_count: List[float] = [0, 0, 0]
 
     def __init__(self):
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Equilibrium") # type: ignore
+        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Equilibrium")  # type: ignore
         arcade.set_background_color(arcade.color.WHITE)
         self.simulation_speed = Text("", 10, SCREEN_HEIGHT - 20, arcade.color.BLACK, 12)
         self.cur_agent_text = Text("", 10, SCREEN_HEIGHT - 40, arcade.color.BLACK, 12)
@@ -35,8 +36,12 @@ class Game(Window):
         self.gui_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         graph_bl = (SCREEN_WIDTH - 450, SCREEN_HEIGHT - 300)
         self.graph = HistoricalData(graph_bl, (200, 200), self.get_data)
-        self.time_no_modif_text = Text("", graph_bl[0], graph_bl[1] - 30, arcade.color.BLACK, 13)
-        self.score_text = Text("", graph_bl[0], graph_bl[1] - 60, arcade.color.BLACK, 15)
+        self.time_no_modif_text = Text(
+            "", graph_bl[0], graph_bl[1] - 30, arcade.color.BLACK, 13
+        )
+        self.score_text = Text(
+            "", graph_bl[0], graph_bl[1] - 60, arcade.color.BLACK, 15
+        )
         self.logs: Logs = Logs((graph_bl[0], graph_bl[1] - 120), (200, 300))
         self.update_agent_text()
         self.update_counts()
@@ -44,11 +49,21 @@ class Game(Window):
     def on_draw(self):
         arcade.start_render()
         self.gui_camera.use()
-        for drawable in [self.simulation_speed, self.cur_agent_text, self.grass_count, self.herbivore_count, self.carnivore_count, self.graph, self.time_no_modif_text, self.score_text, self.logs]:
+        for drawable in [
+            self.simulation_speed,
+            self.cur_agent_text,
+            self.grass_count,
+            self.herbivore_count,
+            self.carnivore_count,
+            self.graph,
+            self.time_no_modif_text,
+            self.score_text,
+            self.logs,
+        ]:
             drawable.draw()
         self.map_camera.use()
         self.map.draw()
-    
+
     def on_update(self, delta_time: float):
         self.time_no_modif += SPEED_MULTIPLIER * delta_time
         self.score += SPEED_MULTIPLIER * delta_time
@@ -57,18 +72,19 @@ class Game(Window):
             self.graph.update()
             self.logs.update()
         self.update_counts()
-    
+
     def update_agent_text(self):
-        self.cur_agent_text.text = f"Click to create: {self.cur_agent.__name__} (use G, H, C to change)"
-    
+        self.cur_agent_text.text = (
+            f"Click to create: {self.cur_agent.__name__} (use G, H, C to change)"
+        )
+
     def get_data(self) -> List[float]:
         return [
             len(self.map.agents(Grass)),
             len(self.map.agents(Herbivore)),
-            len(self.map.agents(Carnivore))
+            len(self.map.agents(Carnivore)),
         ]
-        
-    
+
     def update_counts(self):
         new_count = self.get_data()
         [grass_count, herbivore_count, carnivore_count] = new_count
@@ -76,13 +92,15 @@ class Game(Window):
         self.herbivore_count.text = f"Herbivores total: {herbivore_count}"
         self.carnivore_count.text = f"Carnivores total: {carnivore_count}"
         self.simulation_speed.text = f"Simulation speed: {SPEED_MULTIPLIER}x (use arrows to change, P to pause/resume)"
-        self.time_no_modif_text.text = f"Time without modification: {self.time_no_modif:.1f}s"
+        self.time_no_modif_text.text = (
+            f"Time without modification: {self.time_no_modif:.1f}s"
+        )
         self.score_text.text = f"Score: {self.score:.0f}"
         for i, name in enumerate(["Grass", "Herbivores", "Carnivores"]):
             if new_count[i] == 0 and self.prev_count[i] != 0:
                 self.logs.log(f"Extinction of {name}")
         self.prev_count = new_count
-    
+
     def on_key_press(self, symbol: int, modifiers: int):
         global SPEED_MULTIPLIER
         if symbol == key.H:
@@ -104,7 +122,7 @@ class Game(Window):
         else:
             return
         self.update_agent_text()
-    
+
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
         if button == arcade.MOUSE_BUTTON_LEFT and self.map.collides_with_point((x, y)):
             if self.map.create_agent(x, y, self.cur_agent):
@@ -113,16 +131,23 @@ class Game(Window):
                 self.score = max(0, self.score - 10)
                 last_log = self.logs.last_log()
                 name = self.cur_agent.__name__
-                if last_log is not None and last_log.time_elapsed(self.logs.cur_time) < 30 and last_log.raw_text.startswith("Created") and last_log.raw_text.endswith(name):
+                if (
+                    last_log is not None
+                    and last_log.time_elapsed(self.logs.cur_time) < 30
+                    and last_log.raw_text.startswith("Created")
+                    and last_log.raw_text.endswith(name)
+                ):
                     num = int(last_log.raw_text.split(" ", 3)[1])
                     last_log.raw_text = f"Created {num + 1} {name}"
                     last_log.time_log = self.logs.cur_time
                 else:
                     self.logs.log(f"Created 1 {name}")
 
+
 def main():
     game = Game()
     arcade.run()
+
 
 if __name__ == "__main__":
     main()
