@@ -4,7 +4,7 @@ from constants import SCREEN_WIDTH, SCREEN_HEIGHT
 import agents
 from agents import Map, Grass, Herbivore, Carnivore, Agent
 from historical_data import HistoricalData
-from typing import List, Type
+from typing import List, Type, Tuple
 from logs import Logs
 
 SPEED_MULTIPLIER: int = 1
@@ -107,9 +107,9 @@ class Game(Window):
             f"Time without modification: {self.time_no_modif:.1f}s"
         )
         self.score_text.text = f"Score: {self.score:.0f}"
+        if min(*new_count) == 0:
+            self.score = 0
         for i, agent_type in enumerate([Grass, Herbivore, Carnivore]):
-            if new_count[i] == 0:
-                self.score = 0
             if new_count[i] == 0 and self.prev_count[i] != 0:
                 self.on_extinction(agent_type)
         self.prev_count = new_count
@@ -138,9 +138,19 @@ class Game(Window):
             return
         self.update_agent_text()
 
+    def adjust_xy_to_map(self, x: float, y: float) -> Tuple[float, float]:
+        x -= SCREEN_WIDTH / 2
+        y -= SCREEN_HEIGHT / 2
+        x *= self.map_camera.scale
+        y *= self.map_camera.scale
+        return (x + SCREEN_WIDTH / 2, y + SCREEN_HEIGHT / 2)
+
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
-        if button == arcade.MOUSE_BUTTON_LEFT and self.map.collides_with_point((x, y)):
-            if self.map.create_agent(x, y, self.cur_agent):
+        mx, my = self.adjust_xy_to_map(x, y)
+        if button == arcade.MOUSE_BUTTON_LEFT and self.map.collides_with_point(
+            (mx, my)
+        ):
+            if self.map.create_agent(mx - 25, my + 25, self.cur_agent):
                 self.graph.add_vertical_mark()
                 self.time_no_modif = 0
                 self.score = max(0, self.score - 10)
