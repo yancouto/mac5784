@@ -1,4 +1,4 @@
-# Tarefa 2
+# Tarefa 3
 
 ## Introdução
 
@@ -6,13 +6,20 @@ O jogo é um simulador de ecossistema, onde seres vivos são agentes independent
 
 O jogo se passa em um mapa retangular, cada agente é um sprite no mapa, e pode se mover pelo mapa, e interagir com outros agentes que estejam próximos dele. O jogador clica com o mouse para criar agentes, e pode usar as setas para mudar a velocidade da simulação.
 
-## Agentes estratégicos e equilíbrios
+## Agentes sociais e pontuação
 
-De acordo com a aula de agentes estratégicos, foi interessante explorar agentes terem consciência da existência dos outros agentes. Previamente, carnívoros já perseguiam e comiam herbívoros, mas estes simplesmente ignoravam a existência dos carnívoros. Nessa entrega, os herbívoros sabem da existência de carnívoros e atacam os carnívoros de volta quando atacados. Dessa forma, fica mais dificil para um carnívoro atacar um grupo de herbívoros próximos, o que faz estas "comunidades" ficarem mais fortes, uma interação interessante.
+Nessa entregas, explorei tanto interações sociais, quanto uma gamificação maior do jogo.
 
-Como o jogo é sobre atingir um equilíbrio, também adicionei um gráfico que mostra a porcentagem de plantas, herbívoros e carnívoros. Além disso, o gráfico mostra (com linhas verticais) todos os momentos que o jogador artificialmente adicionou algum agente ao mapa. Isso permite ao jogador analisar como suas mudanças afetam o equilíbrio do ecossistema.
+Para interações sociais, foram adicionadas mecânicas de inteligência de grupo, onde ações locais podem causar um comportamento mais inteligente quando se olha um conjunto grande de indivíduos. Os herbívoros agora formam grupos e manadas ao se locomover, isso é feito adicionando forças entre herbivoros próximos, onde eles tentam ficar à uma distância ideal um do outro. Isso naturalmente faz grupos se formarem, sem ser necessário manualmente tratar isso no código, e os ajuda se proteger dos carnívoros, já que um carnívoro atacando um grupo grande tem mais chance de morrer.
 
-Além disso, outras mudanças foram feitas. Além de balanceamentos entre a força, velocidade e outros parâmetros dos agentes, agora herbívoros e carnívoros podem se reproduzir, e além disso quando um animal morre e decompõe, tem a chance de uma planta surgir em seu lugar, fazendo a ecologia ser realmente um ciclo onde cada ser depende do outro.
+Para carnívoros, o comportamento oposto foi adicionado, onde os carnívoros se repelem, o que naturalmente simula animais territorialistas e faz cada um dominar uma "área", o que garante que eles tenham a comida da região pra si mesmos.
+
+Além disso, foi implementado uma pontuação que diz quão bem o jogador está indo. O jogador é penalizado ao modificar o ambiente, ou quando alguma extinção ocorre, o que torna o jogo mais divertido, e mais claro o objetivo de conseguir um equilíbrio sem influência externa.
+
+Por fim, várias mudanças de gameplay e interface foram implementadas:
+- Com o botão direito do mouse agora é possível excluir agentes, facilitando o encontro de um equilíbrio.
+- Uma lista dos últimos acontecimentos agora aparece na direita, falando quando o jogador criou algum agente, ou quando alguma extinção ocorreu.
+- Barras de vida e fome não aparecem mais por padrão, que deixa o visual mais limpo, mas ainda podem ser vistas apertando TAB.
 
 ## Como jogar
 Para rodar, se já tiver Python e Python Arcade instalado, basta rodar:
