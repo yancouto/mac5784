@@ -12,7 +12,7 @@ R: Random = Random(2014)
 
 T = TypeVar("T", bound="Agent")
 
-SHOW_BARS = True
+SHOW_BARS = False
 
 
 class Agent(Sprite):
@@ -595,9 +595,13 @@ class Map(SpriteSolidColor):
 
     def draw(self, **kwargs) -> None:
         super().draw(**kwargs)
-        for obj in self.scene.sprite_lists:
-            for obj in obj.sprite_list:
-                obj.draw()
+        if SHOW_BARS:
+            for obj in self.scene.sprite_lists:
+                for obj in obj.sprite_list:
+                    obj.draw()
+        else:
+            # This should be faster if we're drawing raw sprites
+            self.scene.draw()
 
     def create_agent(self, x: float, y: float, agent: Type[Agent], **kwargs) -> bool:
         if len(self.agents(agent)) > 1000:

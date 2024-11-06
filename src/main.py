@@ -26,9 +26,16 @@ class Game(Window):
         arcade.set_background_color(arcade.color.WHITE)
         self.simulation_speed = Text("", 10, SCREEN_HEIGHT - 20, arcade.color.BLACK, 12)
         self.cur_agent_text = Text("", 10, SCREEN_HEIGHT - 40, arcade.color.BLACK, 12)
-        self.grass_count = Text("", 10, SCREEN_HEIGHT - 60, arcade.color.BLACK, 12)
-        self.herbivore_count = Text("", 10, SCREEN_HEIGHT - 80, arcade.color.BLACK, 12)
-        self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 100, arcade.color.BLACK, 12)
+        self.tab_text = Text(
+            "Press TAB to toggle health and hunger bars.",
+            10,
+            SCREEN_HEIGHT - 60,
+            arcade.color.BLACK,
+            12,
+        )
+        self.grass_count = Text("", 10, SCREEN_HEIGHT - 80, arcade.color.BLACK, 12)
+        self.herbivore_count = Text("", 10, SCREEN_HEIGHT - 100, arcade.color.BLACK, 12)
+        self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 120, arcade.color.BLACK, 12)
         map_size = 1000
         self.map = Map(map_size)
         self.map_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -52,6 +59,7 @@ class Game(Window):
         for drawable in [
             self.simulation_speed,
             self.cur_agent_text,
+            self.tab_text,
             self.grass_count,
             self.herbivore_count,
             self.carnivore_count,
@@ -85,6 +93,9 @@ class Game(Window):
             len(self.map.agents(Carnivore)),
         ]
 
+    def on_extinction(self, agent: Type[Agent]):
+        self.logs.log(f"Extinction of {agent.__name__}")
+
     def update_counts(self):
         new_count = self.get_data()
         [grass_count, herbivore_count, carnivore_count] = new_count
@@ -96,9 +107,11 @@ class Game(Window):
             f"Time without modification: {self.time_no_modif:.1f}s"
         )
         self.score_text.text = f"Score: {self.score:.0f}"
-        for i, name in enumerate(["Grass", "Herbivores", "Carnivores"]):
+        for i, agent_type in enumerate([Grass, Herbivore, Carnivore]):
+            if new_count[i] == 0:
+                self.score = 0
             if new_count[i] == 0 and self.prev_count[i] != 0:
-                self.logs.log(f"Extinction of {name}")
+                self.on_extinction(agent_type)
         self.prev_count = new_count
 
     def on_key_press(self, symbol: int, modifiers: int):
