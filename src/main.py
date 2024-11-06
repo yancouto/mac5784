@@ -5,6 +5,7 @@ import agents
 from agents import Map, Grass, Herbivore, Carnivore, Agent
 from historical_data import HistoricalData
 from typing import List, Type
+from logs import Logs
 
 SPEED_MULTIPLIER: int = 1
 
@@ -31,16 +32,18 @@ class Game(Window):
         self.map_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.map_camera.scale = map_size / 800.0
         self.gui_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.graph = HistoricalData((SCREEN_WIDTH - 450, SCREEN_HEIGHT / 2), (200, 200), self.get_data)
-        self.time_no_modif_text = Text("", SCREEN_WIDTH - 450, SCREEN_HEIGHT / 2 - 30, arcade.color.BLACK, 13)
-        self.score_text = Text("", SCREEN_WIDTH - 450, SCREEN_HEIGHT / 2 - 60, arcade.color.BLACK, 15)
+        graph_bl = (SCREEN_WIDTH - 450, SCREEN_HEIGHT - 300)
+        self.graph = HistoricalData(graph_bl, (200, 200), self.get_data)
+        self.time_no_modif_text = Text("", graph_bl[0], graph_bl[1] - 30, arcade.color.BLACK, 13)
+        self.score_text = Text("", graph_bl[0], graph_bl[1] - 60, arcade.color.BLACK, 15)
+        self.logs: Logs = Logs((graph_bl[0], graph_bl[1] - 120), (200, 300))
         self.update_agent_text()
         self.update_counts()
 
     def on_draw(self):
         arcade.start_render()
         self.gui_camera.use()
-        for drawable in [self.simulation_speed, self.cur_agent_text, self.grass_count, self.herbivore_count, self.carnivore_count, self.graph, self.time_no_modif_text, self.score_text]:
+        for drawable in [self.simulation_speed, self.cur_agent_text, self.grass_count, self.herbivore_count, self.carnivore_count, self.graph, self.time_no_modif_text, self.score_text, self.logs]:
             drawable.draw()
         self.map_camera.use()
         self.map.draw()
@@ -51,6 +54,7 @@ class Game(Window):
         for _ in range(SPEED_MULTIPLIER):
             self.map.update()
             self.graph.update()
+            self.logs.update()
         self.update_counts()
     
     def update_agent_text(self):
@@ -101,6 +105,14 @@ class Game(Window):
                 self.graph.add_vertical_mark()
                 self.time_no_modif = 0
                 self.score = max(0, self.score - 10)
+                last_log = self.logs.last_log()
+                name = self.cur_agent.__name__
+                if last_log is not None and last_log.time_elapsed(self.logs.cur_time) < 30 and last_log.raw_text.startswith("Created") and last_log.raw_text.endswith(name):
+                    num = int(last_log.raw_text.split(" ", 3)[1])
+                    last_log.raw_text = f"Created {num + 1} {name}"
+                    last_log.time_log = self.logs.cur_time
+                else:
+                    self.logs.log(f"Created 1 {name}")
 
 def main():
     game = Game()
