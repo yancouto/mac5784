@@ -6,6 +6,7 @@ from agents import Map, Grass, Herbivore, Carnivore, Agent
 from historical_data import HistoricalData
 from typing import List, Type, Tuple
 from logs import Logs
+import argparse
 
 SPEED_MULTIPLIER: int = 1
 
@@ -21,7 +22,7 @@ class Game(Window):
     time_no_modif: float = 0
     prev_count: List[float] = [0, 0, 0]
 
-    def __init__(self):
+    def __init__(self, args: argparse.Namespace) -> None:
         super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, "Equilibrium")  # type: ignore
         arcade.set_background_color(arcade.color.WHITE)
         self.simulation_speed = Text("", 10, SCREEN_HEIGHT - 20, arcade.color.BLACK, 12)
@@ -43,6 +44,12 @@ class Game(Window):
         self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 160, arcade.color.BLACK, 12)
         map_size = 1000
         self.map = Map(map_size)
+        if args.herbivores_only:
+            self.map.gen_random_agents(30, [0, 1, 0])
+        elif args.carnivores_only:
+            self.map.gen_random_agents(20, [0, 0, 1])
+        else:
+            self.map.gen_random_agents(50, [11, 5, 2])
         self.map_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
         self.map_camera.scale = map_size / 800.0
         self.gui_camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -187,7 +194,15 @@ class Game(Window):
 
 
 def main():
-    game = Game()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--herbivores-only", action="store_true")
+    parser.add_argument("--carnivores-only", action="store_true")
+    parser.add_argument("--start-paused", action="store_true")
+    args = parser.parse_args()
+    if args.start_paused:
+        global SPEED_MULTIPLIER
+        SPEED_MULTIPLIER = 0
+    game = Game(args)
     arcade.run()
 
 

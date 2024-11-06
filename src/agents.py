@@ -136,7 +136,7 @@ class Carcass(AgentWithHealth):
 
     def __init__(self, *args, original: Type[Agent], **kwargs):
         self.original = original
-        self.rot_speed = R.uniform(1, 5)
+        self.rot_speed = R.uniform(3, 6)
         super().__init__(
             *args,
             ":resources:images/enemies/wormGreen_dead.png",
@@ -149,7 +149,7 @@ class Carcass(AgentWithHealth):
         super().update()
 
     def on_death(self, reason: DeathReason) -> None:
-        if R.randint(0, 200) < self.total_rotted:
+        if R.randint(0, 120) < self.total_rotted:
             self.map.create_agent(self.left, self.top, Grass, health=R.uniform(10, 30))
         return super().on_death(reason)
 
@@ -246,6 +246,7 @@ class AgentWithProcreation(AgentWithHunger):
 class Herbivore(AgentWithProcreation):
     HEALTH_TO_HUNGER: float = 1.2
     health_regen = 1.0
+    procreate_mean: float = 90.0
 
     class HState:
         pass
@@ -306,7 +307,7 @@ class Herbivore(AgentWithProcreation):
             Carnivore,
             lambda c: isinstance(c.state, Carnivore.AttackCooldown)
             and (
-                arcade.get_distance_between_sprites(self, c) < 100
+                arcade.get_distance_between_sprites(self, c) < 130
                 or self.collides_with_sprite(c)
             ),
         )
@@ -499,11 +500,21 @@ class Carnivore(AgentWithProcreation):
                         or (self.hunger >= 30 and state.time_to_move <= 0)
                         or self.hunger - self.health >= 20
                     ):
-                        carcass = self.find_close(Carcass)
+                        carcass = self.find_close(
+                            Carcass,
+                            lambda c: arcade.get_distance_between_sprites(self, c)
+                            < 300,
+                        )
                         if carcass is not None:
                             self.state = Carnivore.ChasingPrey(carcass)
                             return
-                        herbivore = self.find_close(Herbivore)
+                        herbivore = self.find_close(
+                            Herbivore,
+                            lambda h: arcade.get_distance_between_sprites(self, h)
+                            < 300,
+                        )
+                        if herbivore is None:
+                            self.find_close(Herbivore)  # Any will do
                         if herbivore is not None:
                             self.state = Carnivore.ChasingPrey(herbivore)
                             return
@@ -565,11 +576,13 @@ class Map(SpriteSolidColor):
         self.center_y = SCREEN_HEIGHT / 2
         for agent in ALL_AGENTS:
             self.scene.add_sprite_list(agent.__name__, True)
-        for _ in range(50):
+
+    def gen_random_agents(self, total: int, distribution: List[int]) -> None:
+        for _ in range(total):
             left = R.uniform(self.left, self.right - OBJ_SIZE)
             top = R.uniform(self.bottom + OBJ_SIZE, self.top)
             self.create_agent(
-                left, top, R.choices([Grass, Herbivore, Carnivore], [11, 3, 2])[0]
+                left, top, R.choices([Grass, Herbivore, Carnivore], distribution)[0]
             )
 
     def sprite_list(self, agent: Type[Agent]) -> arcade.SpriteList:
