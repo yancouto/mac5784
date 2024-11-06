@@ -411,8 +411,9 @@ class Map(SpriteSolidColor):
             for obj in obj.sprite_list:
                 obj.draw()
     
-    def create_agent(self, x: float, y: float, agent: Type[Agent], **kwargs) -> None:
+    def create_agent(self, x: float, y: float, agent: Type[Agent], **kwargs) -> bool:
         if len(self.agents(agent)) > 1000:
             print("TOO MANY %s AGENTS" % agent.__name__)
-            return
+            return False
         self.scene.add_sprite(agent.__name__, agent(self, x, y, type=agent, **kwargs))
+        return True

@@ -132,7 +132,6 @@ class HistoricalData(Updatable):
             self.draw_mark(len(self.data))
     
     def draw(self) -> None:
-        self.draw_outline()
         (w, h) = self.size
         while len(self.data) * DX > w:
             self.data.pop(0)
@@ -141,4 +140,5 @@ class HistoricalData(Updatable):
                 self.draw_lines()
             case GraphMode.AreaPct:
                 self.draw_area_pct()
+        self.draw_outline()
         self.draw_marks()
