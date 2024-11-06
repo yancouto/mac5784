@@ -119,6 +119,8 @@ class Game(Window):
             else:
                 self.previous_pause_val = SPEED_MULTIPLIER
                 SPEED_MULTIPLIER = 0
+        elif symbol == key.TAB:
+            agents.SHOW_BARS = not agents.SHOW_BARS
         else:
             return
         self.update_agent_text()

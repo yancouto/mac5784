@@ -8,9 +8,11 @@ from typing import Optional, List, Callable, Type, TypeVar, cast, Sequence
 from arcade.arcade_types import Vector
 from common import len2, max_norm
 
-R: Random = Random(2013)
+R: Random = Random(2014)
 
 T = TypeVar("T", bound="Agent")
+
+SHOW_BARS = True
 
 
 class Agent(Sprite):
@@ -23,8 +25,11 @@ class Agent(Sprite):
         self.top = top
         self.map = map
         self.type = type
-        self.base_force: Vector = (0, 0)
-        self.external_force: Vector = [0, 0]
+        self.base_force = [0.0, 0.0]
+
+    # If this returned a list we could have a pretty drawing
+    def calculate_external_force(self) -> Vector:
+        return (0, 0)
 
     @property
     def hitbox_width(self) -> float:
@@ -35,9 +40,14 @@ class Agent(Sprite):
         return self.top - self.bottom
 
     def update(self) -> None:
-        self.velocity[0] += (self.base_force[0] + self.external_force[0]) * DT
-        self.velocity[1] += (self.base_force[1] + self.external_force[1]) * DT
+        external_force = self.calculate_external_force()
+        self.velocity[0] += (self.base_force[0] + external_force[0]) * DT
+        self.velocity[1] += (self.base_force[1] + external_force[1]) * DT
         max_norm(self.velocity, self.max_speed)
+        # Very slowly change base_force to external_force
+        self.base_force[0] += (external_force[0] - self.base_force[0]) * DT
+        self.base_force[1] += (external_force[1] - self.base_force[1]) * DT
+
         super().update()
 
     def find_close(
@@ -71,6 +81,8 @@ class AgentWithHealth(Agent):
 
     def draw(self, **kwargs):
         super().draw(**kwargs)
+        if not SHOW_BARS:
+            return
         health_bar_width = self.hitbox_width * (self.health / 100)
         health_bar_height = 5
         health_bar_x = self.left + health_bar_width / 2
@@ -82,7 +94,6 @@ class AgentWithHealth(Agent):
             health_bar_height,
             arcade.color.GREEN,
         )
-        self.draw_hit_box(arcade.color.RED, 1)
 
     @property
     def is_dead(self) -> bool:
@@ -178,6 +189,8 @@ class AgentWithHunger(AgentWithHealth):
 
     def draw(self, **kwargs):
         super().draw(**kwargs)
+        if not SHOW_BARS:
+            return
         hunger_bar_width = self.hitbox_width * (self.hunger / 100)
         hunger_bar_height = 5
         hunger_bar_x = self.left + hunger_bar_width / 2
@@ -302,6 +315,52 @@ class Herbivore(AgentWithProcreation):
             self.state = Herbivore.AttackCooldown(1.2, carnivore)
         return carnivore is not None
 
+    # Attracted to other herbivores but repel when too close
+    def calculate_external_force(self) -> Vector:
+        if not isinstance(self.state, Herbivore.Idle):
+            return (0, 0)
+        self.max_speed = self.idle_speed
+        external_force: List[float] = [0.0, 0.0]
+        for c in self.map.agents(Herbivore):
+            if c is self:
+                continue
+            vec = [c.center_x - self.center_x, c.center_y - self.center_y]
+            norm2 = len2(vec)
+            max_dist = 300
+            if norm2 > max_dist * max_dist:
+                continue
+            norm = norm2**0.5
+            desired_dist = 150
+            buffer = 50
+            if norm > desired_dist + buffer:
+                # I want to get closer
+                min_dist = desired_dist + buffer
+                strength = 2
+                exp = 0.75
+            elif norm < desired_dist - buffer:
+                # Too close, I want to get further
+                max_dist = desired_dist - buffer
+                min_dist = 0
+                vec[0] *= -1
+                vec[1] *= -1
+                strength = 5
+                exp = 0.5
+            else:
+                continue
+            mult = (
+                (((max_dist - norm) / (max_dist - min_dist)) ** exp)
+                * self.idle_speed
+                * strength
+            )
+            external_force[0] += vec[0] / norm * mult
+            external_force[1] += vec[1] / norm * mult
+        # max_norm(external_force, self.idle_speed)
+        # print(
+        #    "Base force: %.1f, external force: %.1f"
+        #    % (len2(self.base_force) ** 0.5, len2(external_force) ** 0.5)
+        # )
+        return external_force
+
     def update(self):
         super().update()
         self.time_to_procreate -= DT
@@ -317,12 +376,12 @@ class Herbivore(AgentWithProcreation):
                 ) and self.chase_food():
                     return
                 if state.time_to_move <= 0:
-                    if R.random() < 0.3:
-                        self.velocity = [0, 0]
-                    else:
-                        self.velocity = arcade.rotate_point(
-                            self.idle_speed, 0, 0, 0, R.uniform(0, 360)
-                        )
+                    dir = arcade.rotate_point(1, 0, 0, 0, R.uniform(0, 360))
+                    self.velocity = [dir[0] * self.idle_speed, dir[1] * self.idle_speed]
+                    self.base_force = [
+                        dir[0] * self.idle_speed / 2,
+                        dir[1] * self.idle_speed / 2,
+                    ]
                     self.state = Herbivore.Idle.random(8)
             case Herbivore.AttackCooldown(_, _) as state:
                 state.time_to_wait -= DT
@@ -338,6 +397,7 @@ class Herbivore(AgentWithProcreation):
                     self.velocity = [0, 0]
                     self.state = Herbivore.Eating(target)
                 else:
+                    self.max_speed = self.chase_speed
                     self.angle = 0
                     self.velocity = [0, 0]
                     self.face_point(target.position)
@@ -407,9 +467,12 @@ class Carnivore(AgentWithProcreation):
             self.left, self.top, Carcass, original=self.__class__, health=init_health
         )
 
-    def calculate_repel_force(self):
+    # Repel close carnivores
+    def calculate_external_force(self) -> Vector:
+        if not isinstance(self.state, Carnivore.Idle):
+            return (0, 0)
         self.max_speed = self.idle_speed
-        self.external_force = [0, 0]
+        external_force = [0.0, 0.0]
         for c in self.map.agents(Carnivore):
             if c is self:
                 continue
@@ -419,10 +482,11 @@ class Carnivore(AgentWithProcreation):
             if norm2 <= max_dist * max_dist:
                 norm = norm2**0.5
                 mult = (((max_dist - norm) / max_dist) ** 1.2) * self.idle_speed * 5
-                self.external_force[0] += vec[0] / norm * mult
-                self.external_force[1] += vec[1] / norm * mult
-        max_norm(self.external_force, self.idle_speed)
+                external_force[0] += vec[0] / norm * mult
+                external_force[1] += vec[1] / norm * mult
+        max_norm(external_force, self.idle_speed)
         # print("Base force: %.1f, external force: %.1f" % (len2(self.base_force) ** 0.5, len2(self.external_force) ** 0.5))
+        return external_force
 
     def update(self):
         super().update()
@@ -446,10 +510,9 @@ class Carnivore(AgentWithProcreation):
                     if state.time_to_move <= 0:
                         dir = arcade.rotate_point(1, 0, 0, 0, R.uniform(0, 360))
                         spd = self.idle_speed
-                        self.base_force = (dir[0] * spd / 2, dir[1] * spd / 2)
+                        self.base_force = [dir[0] * spd / 2, dir[1] * spd / 2]
                         self.velocity = [dir[0] * spd, dir[1] * spd]
                         self.state = Carnivore.Idle.random(8)
-                    self.calculate_repel_force()
                 case Carnivore.ChasingPrey(target):
                     if target.is_dead:
                         self.state = Carnivore.Idle(0)
@@ -519,16 +582,16 @@ class Map(SpriteSolidColor):
                 obj.update()
                 if obj.left < self.left:
                     obj.change_x = abs(obj.change_x)
-                    obj.base_force = (abs(obj.base_force[0]), obj.base_force[1])
+                    obj.base_force = [abs(obj.base_force[0]), obj.base_force[1]]
                 elif obj.right > self.right:
                     obj.change_x = -abs(obj.change_x)
-                    obj.base_force = (-abs(obj.base_force[0]), obj.base_force[1])
+                    obj.base_force = [-abs(obj.base_force[0]), obj.base_force[1]]
                 elif obj.top > self.top:
                     obj.change_y = -abs(obj.change_y)
-                    obj.base_force = (obj.base_force[0], -abs(obj.base_force[1]))
+                    obj.base_force = [obj.base_force[0], -abs(obj.base_force[1])]
                 elif obj.bottom < self.bottom:
                     obj.change_y = abs(obj.change_y)
-                    obj.base_force = (obj.base_force[0], abs(obj.base_force[1]))
+                    obj.base_force = [obj.base_force[0], abs(obj.base_force[1])]
 
     def draw(self, **kwargs) -> None:
         super().draw(**kwargs)
