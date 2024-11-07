@@ -190,15 +190,24 @@ class Game(Window):
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
         if arcade.MOUSE_BUTTON_LEFT:
-            Slider.check_click(x, y)
+            changed = Slider.check_click(x, y)
+            if changed is not None:
+                score_change = 10
+                text = f"'{changed}' manually changed"
+                last_log = self.logs.last_log()
+                if last_log is None or last_log.raw_text != text:
+                    self.logs.log(text)
+                else:
+                    if last_log.time_elapsed(self.logs.cur_time) < 10:
+                        score_change = 0
+                    last_log.time_log = self.logs.cur_time
+                self.record_modification(score_change)
         mx, my = self.adjust_xy_to_map(x, y)
         if button == arcade.MOUSE_BUTTON_LEFT and self.map.collides_with_point(
             (mx, my)
         ):
             if self.map.create_agent(mx - 25, my + 25, self.cur_agent):
-                self.graph.add_vertical_mark()
-                self.time_no_modif = 0
-                self.score = max(0, self.score - 10)
+                self.record_modification()
                 last_log = self.logs.last_log()
                 name = self.cur_agent.__name__
                 if (
@@ -219,10 +228,12 @@ class Game(Window):
             for agent in to_kill:
                 agent.kill()
                 self.logs.log(f"Manually killed {agent.__class__.__name__}")
-                self.score = max(0, self.score - 10)
-            if len(to_kill) > 0:
-                self.graph.add_vertical_mark()
-                self.time_no_modif = 0
+                self.record_modification()
+
+    def record_modification(self, score_change: int = 10):
+        self.graph.add_vertical_mark()
+        self.time_no_modif = 0
+        self.score = max(0, self.score - score_change)
 
 
 def main():

@@ -1,5 +1,5 @@
 from arcade import Sprite, SpriteList, Text, color
-from typing import List, cast
+from typing import List, cast, Optional
 import arcade
 
 
@@ -17,8 +17,8 @@ class SliderButton(Sprite):
         self.left = left
         self.top = top
 
-    def on_click(self) -> None:
-        self.parent.click(self.increase)
+    def on_click(self) -> bool:
+        return self.parent.click(self.increase)
 
 
 class Slider:
@@ -32,10 +32,14 @@ class Slider:
             slider.draw()
 
     @staticmethod
-    def check_click(x: float, y: float) -> None:
+    def check_click(x: float, y: float) -> Optional[str]:
         clicked = arcade.get_sprites_at_point((x, y), Slider.ALL_BUTTONS)
+        any = None
         for button in clicked:
-            cast(SliderButton, button).on_click()
+            button = cast(SliderButton, button)
+            if button.on_click():
+                any = button.parent.pretty_name
+        return any
 
     text: Text
     obj: object
@@ -80,7 +84,10 @@ class Slider:
         self.text.text = f"{self.pretty_name}: {self.get_val():.1f}"
         self.text.draw()
 
-    def click(self, increase: bool) -> None:
+    def click(self, increase: bool) -> bool:
         new_val = self.get_val() + self.get_step() * (1 if increase else -1)
         new_val = min(self.max_val, max(self.min_val, new_val))
-        self.set_val(new_val)
+        if new_val != self.get_val():
+            self.set_val(new_val)
+            return True
+        return False
