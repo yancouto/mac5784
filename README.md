@@ -1,4 +1,4 @@
-# Tarefa 3
+# Tarefa 4
 
 ## Introdução
 
@@ -6,20 +6,9 @@ O jogo é um simulador de ecossistema, onde seres vivos são agentes independent
 
 O jogo se passa em um mapa retangular, cada agente é um sprite no mapa, e pode se mover pelo mapa, e interagir com outros agentes que estejam próximos dele. O jogador clica com o mouse para criar agentes, e pode usar as setas para mudar a velocidade da simulação.
 
-## Agentes sociais e pontuação
+## Entrega final
 
-Nessa entregas, explorei tanto interações sociais, quanto uma gamificação maior do jogo.
-
-Para interações sociais, foram adicionadas mecânicas de inteligência de grupo, onde ações locais podem causar um comportamento mais inteligente quando se olha um conjunto grande de indivíduos. Os herbívoros agora formam grupos e manadas ao se locomover, isso é feito adicionando forças entre herbivoros próximos, onde eles tentam ficar à uma distância ideal um do outro. Isso naturalmente faz grupos se formarem, sem ser necessário manualmente tratar isso no código, e os ajuda se proteger dos carnívoros, já que um carnívoro atacando um grupo grande tem mais chance de morrer.
-
-Para carnívoros, o comportamento oposto foi adicionado, onde os carnívoros se repelem, o que naturalmente simula animais territorialistas e faz cada um dominar uma "área", o que garante que eles tenham a comida da região pra si mesmos.
-
-Além disso, foi implementado uma pontuação que diz quão bem o jogador está indo. O jogador é penalizado ao modificar o ambiente, ou quando alguma extinção ocorre, o que torna o jogo mais divertido, e mais claro o objetivo de conseguir um equilíbrio sem influência externa.
-
-Por fim, várias mudanças de gameplay e interface foram implementadas:
-- Com o botão direito do mouse agora é possível excluir agentes, facilitando o encontro de um equilíbrio.
-- Uma lista dos últimos acontecimentos agora aparece na direita, falando quando o jogador criou algum agente, ou quando alguma extinção ocorreu.
-- Barras de vida e fome não aparecem mais por padrão, que deixa o visual mais limpo, mas ainda podem ser vistas apertando TAB.
+Como exemplo de comportamento de agente com escala de valores adicionado, Herbívoros param de comer plantas se elas estão próximas de morrer e eles não estão morrendo de fome, pois isso, apesar de dificultar sua vida em curto termo, prolonga em longo já que evita a redução do número de plantas, que pode causar a extinção dos herbívoros.
 
 ## Como jogar
 Para rodar, se já tiver Python e Python Arcade instalado, basta rodar:

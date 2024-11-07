@@ -246,7 +246,7 @@ class AgentWithProcreation(AgentWithHunger):
 class Herbivore(AgentWithProcreation):
     HEALTH_TO_HUNGER: float = 1.2
     health_regen = 1.0
-    procreate_mean: float = 90.0
+    procreate_mean: float = 60.0
 
     class HState:
         pass
@@ -296,7 +296,11 @@ class Herbivore(AgentWithProcreation):
         )
 
     def chase_food(self) -> bool:
-        grass = self.find_close(Grass)
+        grass = self.find_close(Grass, lambda g: g.health > 50)
+        if grass is None:
+            grass = self.find_close(Grass, lambda g: g.health > 10)
+        if grass is None:
+            grass = self.find_close(Grass)
         if grass is not None:
             self.state = Herbivore.ChasingFood(grass)
         return grass is not None
@@ -410,7 +414,8 @@ class Herbivore(AgentWithProcreation):
                 else:
                     eaten = target.remove_health(self.eat_speed * DT)
                     self.remove_hunger(eaten * Herbivore.HEALTH_TO_HUNGER)
-                    if self.hunger <= 0:
+                    # Stop eating if we're going to kill the plant
+                    if self.hunger <= 0 or (self.hunger < 40 and target.health <= 10):
                         self.state = Herbivore.Idle.random(0.5)
             case _:
                 raise ValueError("Unknown state")
@@ -419,6 +424,7 @@ class Herbivore(AgentWithProcreation):
 class Carnivore(AgentWithProcreation):
     health_to_hunger: float = 1.6
     health_regen = 1.0
+    satisfied_health_regen = 8.0
     procreate_mean = 100.0
     hunger_buildup = 5.0
 
@@ -459,7 +465,7 @@ class Carnivore(AgentWithProcreation):
         self.idle_speed: float = R.uniform(0.3, 1.2)
         self.chase_speed: float = R.uniform(0.3, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
-        self.attack_damage: float = R.uniform(20, 50)
+        self.attack_damage: float = R.uniform(30, 60)
 
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
