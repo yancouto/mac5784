@@ -10,6 +10,9 @@ import argparse
 
 SPEED_MULTIPLIER: int = 1
 
+# TODO:
+# - Implement age
+
 
 class Game(Window):
     map: Map

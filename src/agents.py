@@ -69,11 +69,13 @@ class DeathReason(Enum):
     Attack = "attack"
     Eaten = "eaten"
     Rotted = "rotted"
+    OldAge = "old age"
 
 
 class AgentWithHealth(Agent):
     health = 100.0
     health_regen = 0.0
+    health_bar_color = arcade.color.GREEN
 
     def __init__(self, *args, **kwargs):
         self.health = kwargs.pop("health", 100.0)
@@ -92,7 +94,7 @@ class AgentWithHealth(Agent):
             health_bar_y,
             health_bar_width,
             health_bar_height,
-            arcade.color.GREEN,
+            self.health_bar_color,
         )
 
     @property
@@ -160,8 +162,28 @@ class Carcass(AgentWithHealth):
             return DeathReason.Rotted
 
 
-class Grass(AgentWithHealth):
+class AgentWithAge(AgentWithHealth):
+    mean_age: float = 100.0
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.age_left: float = R.gauss(self.mean_age, self.mean_age / 4)
+
+    def update(self):
+        if self.age_left > 0:
+            self.age_left -= DT
+            if self.age_left <= 0:
+                print(f"{self} dies of old age")
+                self.health = 0
+        super().update()
+
+    def death_reason(self) -> DeathReason:
+        return super().death_reason() if self.age_left > 0 else DeathReason.OldAge
+
+
+class Grass(AgentWithAge):
     health_regen = 5.0
+    mean_age = 1000.0
 
     def __init__(self, *args, **kwargs):
         super().__init__(
@@ -169,7 +191,7 @@ class Grass(AgentWithHealth):
         )
 
 
-class AgentWithHunger(AgentWithHealth):
+class AgentWithHunger(AgentWithAge):
     hunger_damage: float = 10.0
     hunger: float
     hunger_buildup: float = 4.0
