@@ -10,6 +10,10 @@ O jogo se passa em um mapa retangular, cada agente é um sprite no mapa, e pode 
 
 Como exemplo de comportamento de agente com escala de valores adicionado, Herbívoros param de comer plantas se elas estão próximas de morrer e eles não estão morrendo de fome, pois isso, apesar de dificultar sua vida em curto termo, prolonga em longo já que evita a redução do número de plantas, que pode causar a extinção dos herbívoros.
 
+Foi implementada a modificação de paramêtros: Jogadores podem modificar parâmentros como o dano de ataque de carnívoros, fome dos herbívoros, e muitos outros parâmetros. Isso dá muito mais agência ao jogador em como criar seu equilíbrio, enquanto antes ele podia apenas criar ou remover agentes.
+
+Também foi implementada a mecânica de idade, em que animais velhos morrem.
+
 ## Como jogar
 Para rodar, se já tiver Python e Python Arcade instalado, basta rodar:
 - `python src/main.py`
