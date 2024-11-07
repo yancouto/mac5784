@@ -2,16 +2,14 @@ import arcade, arcade.color
 from arcade import Window, key, Text, Camera
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT
 import agents
-from agents import Map, Grass, Herbivore, Carnivore, Agent
+from agents import Map, Grass, Herbivore, Carnivore, Agent, Carcass
 from historical_data import HistoricalData
 from typing import List, Type, Tuple
 from logs import Logs
+from slider import Slider
 import argparse
 
 SPEED_MULTIPLIER: int = 1
-
-# TODO:
-# - Implement age
 
 
 class Game(Window):
@@ -45,6 +43,34 @@ class Game(Window):
         self.grass_count = Text("", 10, SCREEN_HEIGHT - 120, arcade.color.BLACK, 12)
         self.herbivore_count = Text("", 10, SCREEN_HEIGHT - 140, arcade.color.BLACK, 12)
         self.carnivore_count = Text("", 10, SCREEN_HEIGHT - 160, arcade.color.BLACK, 12)
+
+        for i, s_args in enumerate(
+            [
+                (agent, name, f"{agent.__name__} {desc}", min_, max_)
+                for (name, desc, min_, max_) in [
+                    ("hunger_buildup", "hunger increase", 1, 10),
+                    ("hunger_damage", "damage from hunger", 5, 25),
+                    ("satisfied_health_regen", "health regen when well-fed", 1, 10),
+                    ("mean_age", "mean lifespan", 50, 300),
+                    ("procreate_mean", "mean procreation time", 50, 300),
+                    ("health_to_hunger", "feeding efficiency", 0.5, 1.5),
+                    ("mean_attack_damage", "mean attack damage", 5, 50),
+                ]
+                for agent in (Herbivore, Carnivore)
+            ]
+            + [
+                (Carnivore, "mean_chase_speed", "Carnivore mean chase speed", 0.5, 3),
+                (Grass, "mean_age", "Grass mean lifespan", 100, 2000),
+                (Carcass, "mean_rot_speed", "Carcass mean rot speed", 1, 20),
+            ]
+        ):
+            Slider(
+                10,
+                SCREEN_HEIGHT / 3 + 20 * i,
+                20,
+                *s_args,
+            )
+
         map_size = 1000
         self.map = Map(map_size)
         if args.herbivores_only:
@@ -71,6 +97,7 @@ class Game(Window):
     def on_draw(self):
         arcade.start_render()
         self.gui_camera.use()
+        Slider.draw_all()
         for drawable in [
             self.simulation_speed,
             self.cur_agent_text,
@@ -162,6 +189,8 @@ class Game(Window):
         return (x + SCREEN_WIDTH / 2, y + SCREEN_HEIGHT / 2)
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
+        if arcade.MOUSE_BUTTON_LEFT:
+            Slider.check_click(x, y)
         mx, my = self.adjust_xy_to_map(x, y)
         if button == arcade.MOUSE_BUTTON_LEFT and self.map.collides_with_point(
             (mx, my)

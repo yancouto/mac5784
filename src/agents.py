@@ -10,6 +10,11 @@ from common import len2, max_norm
 
 R: Random = Random(2014)
 
+
+def simple_gauss(mean: float) -> float:
+    return max(0, R.gauss(mean, mean / 4))
+
+
 T = TypeVar("T", bound="Agent")
 
 SHOW_BARS = False
@@ -132,13 +137,13 @@ class AgentWithHealth(Agent):
 
 class Carcass(AgentWithHealth):
     health_regen = 0
-    rot_speed: float
+    mean_rot_speed: float = 4
     original: Type[Agent]
     total_rotted: float = 0
 
     def __init__(self, *args, original: Type[Agent], **kwargs):
         self.original = original
-        self.rot_speed = R.uniform(3, 6)
+        self.rot_speed = simple_gauss(self.mean_rot_speed)
         super().__init__(
             *args,
             ":resources:images/enemies/wormGreen_dead.png",
@@ -266,9 +271,10 @@ class AgentWithProcreation(AgentWithHunger):
 
 
 class Herbivore(AgentWithProcreation):
-    HEALTH_TO_HUNGER: float = 1.2
+    health_to_hunger: float = 1.2
     health_regen = 1.0
     procreate_mean: float = 60.0
+    mean_attack_damage: float = 10.0
 
     class HState:
         pass
@@ -307,8 +313,7 @@ class Herbivore(AgentWithProcreation):
         self.idle_speed: float = R.uniform(0.3, 1.2)
         self.chase_speed: float = R.uniform(0.3, 2.0)
         self.eat_speed: float = R.uniform(15, 20)
-        # Less than carnivore
-        self.attack_damage: float = R.uniform(5, 15)
+        self.attack_damage: float = simple_gauss(self.mean_attack_damage)
 
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
@@ -435,7 +440,7 @@ class Herbivore(AgentWithProcreation):
                     self.state = Herbivore.Idle.random(1)
                 else:
                     eaten = target.remove_health(self.eat_speed * DT)
-                    self.remove_hunger(eaten * Herbivore.HEALTH_TO_HUNGER)
+                    self.remove_hunger(eaten * self.health_to_hunger)
                     # Stop eating if we're going to kill the plant
                     if self.hunger <= 0 or (self.hunger < 40 and target.health <= 10):
                         self.state = Herbivore.Idle.random(0.5)
@@ -449,6 +454,8 @@ class Carnivore(AgentWithProcreation):
     satisfied_health_regen = 8.0
     procreate_mean = 100.0
     hunger_buildup = 5.0
+    mean_attack_damage: float = 45.0
+    mean_chase_speed: float = 1.5
 
     class CState:
         pass
@@ -485,9 +492,9 @@ class Carnivore(AgentWithProcreation):
         )
         self.state = Carnivore.Idle(0)
         self.idle_speed: float = R.uniform(0.3, 1.2)
-        self.chase_speed: float = R.uniform(0.3, 2.0)
+        self.chase_speed: float = simple_gauss(self.mean_chase_speed)
         self.eat_speed: float = R.uniform(15, 20)
-        self.attack_damage: float = R.uniform(30, 60)
+        self.attack_damage: float = simple_gauss(self.mean_attack_damage)
 
     def on_death(self, reason: DeathReason) -> None:
         super().on_death(reason)
