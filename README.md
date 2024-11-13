@@ -12,7 +12,7 @@ Como exemplo de comportamento de agente com escala de valores adicionado, Herbí
 
 Foi implementada a modificação de paramêtros: Jogadores podem modificar parâmentros como o dano de ataque de carnívoros, fome dos herbívoros, e muitos outros parâmetros. Isso dá muito mais agência ao jogador em como criar seu equilíbrio, enquanto antes ele podia apenas criar ou remover agentes.
 
-Também foi implementada a mecânica de idade, em que animais velhos morrem.
+Também foi implementada a mecânica de idade, em que animais velhos morrem, e sua expectativa de vida pode ser controlada pelo jogar, que junto com reprodução e outros fatores, ajudam o jogador a controlar o equilíbrio.
 
 ## Como jogar
 Para rodar, se já tiver Python e Python Arcade instalado, basta rodar:
